@@ -2,9 +2,9 @@
 
 ## מצב נוכחי
 
-- שבוע נוכחי: **שבוע 2 — אינטגרציה עם LLM API**.
-- יעד למידה פעיל: **שבוע 2 — timeout ו־retries ב־OpenAI SDK**.
-- יש להמתין לניסיון המשתמש בתרגיל לפני סימון הנושא כהושלם.
+- שבוע נוכחי: **שבוע 3 — Agent מאפס**.
+- יעד למידה פעיל: **אישור אנושי לפני הפעלת tool רגיש**.
+- לולאת Agent בסיסית עם מגבלת צעדים הושלמה ואומתה.
 
 ## חיזוק Python לפני המשך שבוע 2
 
@@ -67,7 +67,9 @@ temperature, structured outputs, JSON, tool calling בסיסי, authentication
 ובקרת עלויות.
 
 - [x] לבנות שירות Python שמתקשר עם LLM ומחזיר תוצאה מובנית.
-- [ ] להבין tool calling בסיסי: הגדרת tool, בחירת tool וביצוע מבוקר.
+- [x] להבין tool calling בסיסי: הגדרת tool, בחירת tool וביצוע מבוקר.
+- [x] לממש זרימת tool calling מלאה עם allowlist ובדיקות mock ללא רשת.
+- [x] לבצע review לבדיקות ה־mock ולהסביר מדוע מדמים שתי תגובות מודל.
 - [x] להתחיל רק לאחר אישור המשתמש.
 - [x] להבין client, קריאת `responses.create`, קלט ופלט בסיסיים.
 - [x] לתרגל קריאה אסינכרונית עם `AsyncOpenAI`, `await` ו־`output_text`.
@@ -90,6 +92,9 @@ loop, תוצאות tools, שגיאות, execution limits ואישור אנושי
 
 - [ ] לבנות Agent ללא framework מלא: קבלת משימה, החלטה על tool, ביצוע,
   המשך לפי הצורך והחזרת תוצאה סופית.
+- [x] להבין את ההבדל בין קריאת LLM יחידה, Tool Calling קבוע ו־Agent loop.
+- [x] לממש execution loop עם כמה סבבי tools ומגבלת `max_steps`.
+- [ ] להוסיף אישור אנושי לפני הפעלת tool רגיש.
 
 ## שבוע 4 — Frameworks ו־state
 
@@ -107,30 +112,47 @@ human-in-the-loop, persistence ודיבוג Agents.
 
 - [ ] לבנות Agent שקורא תיעוד, מאחזר מידע רלוונטי ופועל מול APIs.
 
-## שבוע 6 — Multi-Agent Systems
+## שבוע 6 — System Design ומערכות מבוזרות
 
-יעדים: orchestration, supervisor patterns, פירוק משימות, Manager,
-Executor, Reviewer, evaluation, retries ובקרת עלויות.
+יעדים: System Design, מערכות מבוזרות, queues, idempotency, retries,
+circuit breakers והערכה מדידה של מערכות AI.
 
-- [ ] לבנות Manager/Executor/Reviewer רק אם ההפרדה נותנת ערך מדיד לעומת
+- [ ] לתכנן ארכיטקטורה מבוזרת לעיבוד משימות AI באמצעות queue ו־workers.
+- [ ] לממש idempotency, מדיניות retries ו־circuit breaker עבור תלויות
+  חיצוניות.
+- [ ] להגדיר evaluation מדיד עם dataset מייצג, מדדי איכות, latency,
+  עלות וקריטריוני הצלחה.
+- [ ] אופציונלי: ללמוד דפוסי Multi-Agent רק אם הם נותנים ערך מדיד לעומת
   Agent יחיד.
 
 ## שבוע 7 — Production Engineering
 
-יעדים: Docker, CI/CD, GitHub Actions, configuration, environment variables,
-secrets, logging, monitoring, recovery, rate limits, API/Agent security,
-מעקב עלויות, evaluation ובדיקות.
+יעדים: Docker, GitHub Actions, CI/CD, פריסה לענן, structured logging,
+monitoring, alerting, אבטחה ואמינות production.
 
-- [ ] להכין את אפליקציית ה־Agent לפריסה באופן מאובטח.
+- [ ] לארוז את האפליקציה ב־Docker ולהגדיר configuration ו־secrets באופן
+  מאובטח.
+- [ ] לבנות pipeline של GitHub Actions לבדיקות, build ו־deployment.
+- [ ] לפרוס את האפליקציה לסביבת cloud ולתעד rollback ו־recovery.
+- [ ] להוסיף structured logging, monitoring, alerting ומדדי אמינות.
+- [ ] לבצע production hardening: הרשאות, rate limits, timeouts, הגנת
+  API/Agent וטיפול בכשלים.
 
 ## שבוע 8 — פרויקט גמר והכנה לקריירה
 
-יעדים: system design, ארכיטקטורת AI, תיעוד, trade-offs, הצגת portfolio
-והכנה לראיונות Python, backend ו־AI Engineering.
+יעדים: השלמת פרויקט AI Agent מקצה לקצה עם אישור אנושי, התאוששות
+משגיאות, בדיקות עומס, תיעוד ארכיטקטורה והכנה לראיונות Senior Backend
+ו־Applied AI.
 
-- [ ] לבנות מערכת Agent שמקבלת משימה אמיתית, מתכננת, משתמשת בכלים,
-  מטפלת בשגיאות, עוקבת אחר ביצוע, מעריכה תוצאה ומפיקה דוח מובנה.
-- [ ] להכין את הפרויקט להצגה בתיק עבודות ובראיונות.
+- [ ] להשלים Agent מקצה לקצה שמקבל משימה אמיתית, משתמש בכלים ומחזיר
+  תוצאה מובנית ומדידה.
+- [ ] להוסיף human approval לפעולות רגישות ו־error recovery לכשלים
+  זמניים וחלקיים.
+- [ ] לבצע load testing, לזהות צווארי בקבוק ולתעד מגבלות קיבולת.
+- [ ] להכין תיעוד ארכיטקטורה, תרשימי זרימה, החלטות ו־trade-offs להצגה
+  בתיק העבודות.
+- [ ] להתכונן לראיונות Senior Backend ו־Applied AI באמצעות System Design,
+  תרגילי Python ושאלות על Agents ומערכות production.
 
 ## אבני דרך מוצר עתידיות — אינן המשימה הנוכחית
 
