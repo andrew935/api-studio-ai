@@ -2,9 +2,9 @@
 
 ## מצב נוכחי
 
-- שבוע נוכחי: **שבוע 3 — Agent מאפס**.
-- יעד למידה פעיל: **המשך Agent לאחר ביצוע tool שאושר**.
-- לולאת Agent מוגבלת ומנגנון אישור אנושי לכלי רגיש הושלמו ואומתו.
+- שבוע נוכחי: **שבוע 4 — Frameworks ו־state**.
+- יעד למידה פעיל: **System Design ו־gap analysis לשוק העבודה**.
+- Agents SDK, state, approvals ו־sessions הושלמו; LangGraph אינו נדרש כעת.
 
 ## חיזוק Python לפני המשך שבוע 2
 
@@ -90,19 +90,27 @@ temperature, structured outputs, JSON, tool calling בסיסי, authentication
 יעדים: ההבדל בין Agent לקריאת LLM, הגדרת tools, בחירת tool, execution
 loop, תוצאות tools, שגיאות, execution limits ואישור אנושי.
 
-- [ ] לבנות Agent ללא framework מלא: קבלת משימה, החלטה על tool, ביצוע,
+- [x] לבנות Agent ללא framework מלא: קבלת משימה, החלטה על tool, ביצוע,
   המשך לפי הצורך והחזרת תוצאה סופית.
 - [x] להבין את ההבדל בין קריאת LLM יחידה, Tool Calling קבוע ו־Agent loop.
 - [x] לממש execution loop עם כמה סבבי tools ומגבלת `max_steps`.
 - [x] להוסיף אישור אנושי לפני הפעלת tool רגיש.
-- [ ] להמשיך את לולאת ה־Agent לאחר ביצוע tool שאושר ולהחזיר תשובה סופית.
+- [x] להמשיך את לולאת ה־Agent לאחר ביצוע tool שאושר ולהחזיר תשובה סופית.
 
 ## שבוע 4 — Frameworks ו־state
 
 יעדים: OpenAI Agents SDK, יסודות LangGraph, state, memory, workflows,
 human-in-the-loop, persistence ודיבוג Agents.
 
-- [ ] לשפר את ה־Agent בעזרת framework מתאים ולהסביר מתי framework מועיל.
+- [x] לשפר את ה־Agent בעזרת framework מתאים ולהסביר מתי framework מועיל.
+- [x] להוסיף גרסת OpenAI Agents SDK מקבילה עם `Agent`, ‏`Runner` ו־
+  `@function_tool`, בלי להחליף את המימוש הידני.
+- [x] להוסיף context והרשאות, human approval ו־state לגרסת ה־SDK.
+- [x] להוסיף `SQLiteSession` עם `conversation_id` וגבול של 20 פריטים.
+- [x] ללמוד persistence, sessions ו־tracing, ולהשוות בקצרה ל־LangGraph.
+- [x] להתחיל תרגול System Design: queues, idempotency, circuit breaker
+  ו־transactional outbox.
+- [x] להוסיף dataset ו־offline scorer בסיסיים ל־Agent evals ללא מודל חי.
 - [ ] להתחיל מחקר שוק עבודה, gap analysis, הכנה לראיונות ו־system design.
 - [ ] להתחיל לחזק את תיק העבודות; חיפוש עבודה פעיל רק באישור מפורש.
 

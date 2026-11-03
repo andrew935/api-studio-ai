@@ -2,11 +2,15 @@ import pytest
 
 from backend.app.schemas.tool_approval import ToolApproval
 from backend.app.services.approval_store import (
+    agent_runs,
     approvals_store,
     approve_tool,
     execute_approved_tool,
+    get_agent_run,
     get_approval,
+    save_agent_run,
     save_approval,
+    take_agent_run,
 )
 from backend.app.services.tool_calling import TOOL_HANDLERS
 
@@ -14,8 +18,10 @@ from backend.app.services.tool_calling import TOOL_HANDLERS
 @pytest.fixture(autouse=True)
 def clear_approvals_store():
     approvals_store.clear()
+    agent_runs.clear()
     yield
     approvals_store.clear()
+    agent_runs.clear()
 
 
 def make_approval(
@@ -39,6 +45,20 @@ def test_save_and_get_approval():
 
     assert get_approval("approval_42") is approval
     assert get_approval("missing") is None
+
+
+def test_save_get_and_take_agent_run():
+    input_items = [{"role": "user", "content": "Delete customer 42"}]
+
+    save_agent_run("approval_42", input_items)
+    input_items.append({"role": "user", "content": "Changed later"})
+
+    stored_items = get_agent_run("approval_42")
+    assert stored_items == [
+        {"role": "user", "content": "Delete customer 42"}
+    ]
+    assert take_agent_run("approval_42") is stored_items
+    assert take_agent_run("approval_42") is None
 
 
 def test_approve_tool_checks_owner_and_pending_status():

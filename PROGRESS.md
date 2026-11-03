@@ -1,10 +1,78 @@
 # התקדמות מאומתת — API Studio AI
 
-תאריך עדכון אחרון: 2026-11-01.
+תאריך עדכון אחרון: 2026-11-03.
 
 ## מצב הלמידה
 
-- שבוע נוכחי: **שבוע 3 — Agent מאפס**.
+- שבוע נוכחי: **שבוע 4 — Frameworks ו־state**.
+- ב־2026-11-02 המשתמש אישר מעבר לשבוע 4. יעד פעיל: להבין מה OpenAI
+  Agents SDK מנהל עבורנו לעומת הלולאה הידנית, ומה חייב להישאר באחריות
+  האפליקציה. טרם נוסף framework לקוד.
+- יעד שהושלם: **גרסת OpenAI Agents SDK בסיסית במקביל למימוש הידני**.
+  המשתמש זיהה ש־`Runner` מחליף בעיקר את execution loop, ש־`@function_tool`
+  מחבר schema ו־handler אך אינו מחליף הרשאות, וש־`user_id` והרשאות מגיעים
+  מה־server context בעוד arguments עסקיים יכולים להגיע מהמודל. הוא הבדיל
+  גם בין `RunResult` לבין `final_output` ובין פלט טקסטואלי לפלט Pydantic.
+- הותקן וננעל `openai-agents==0.24.0`. נוסף `services/sdk_agent.py` עם
+  `Agent`, ‏`Runner`, כלי balance שנוצר מחתימת Python ומגבלת חמישה turns.
+  המימוש הידני נשמר ללא החלפה לצורך השוואה ו־fallback.
+- אימות ממוקד ב־2026-11-03: **2 passed in 6.97s**. אימות מלא:
+  **60 passed in 9.27s**. ‏`pip check` החזיר `No broken requirements
+  found.` הבדיקות השתמשו ב־Runner מדומה; לא בוצעה קריאת OpenAI חיה,
+  לא נדרש API key ולא נצרכה עלות.
+- יעד פעיל הבא: context והרשאות, human approval ו־state בגרסת ה־SDK.
+- יעד שהושלם: **Context, הרשאות ו־human approval ב־Agents SDK**.
+  המשתמש הבחין ש־`needs_approval=True` דורש אישור אך אינו מעניק הרשאה,
+  כתב חתימת tool רגישה, זיהה `result.interruptions`, יצר `RunState`
+  באמצעות `to_state()`, והבין שהאפליקציה יוצרת `approval_id` ושומרת את
+  ה־state בצד השרת.
+- נוספו `AppContext`, כלי מחיקה דמו עם `needs_approval=True`, אחסון זמני
+  של `RunState`, בדיקת בעלות והרשאות לפני `state.approve()`, והמשך Runner
+  מאותו state. הרשאות נבדקות מחדש בזמן האישור ולא רק בתחילת ההרצה.
+- אימות ממוקד ב־2026-11-03: **6 passed in 7.11s**. אימות מלא:
+  **64 passed in 9.07s**. כל בדיקות ה־SDK משתמשות ב־mocks בלבד; לא בוצעה
+  קריאת OpenAI חיה ולא נצרכה עלות.
+- יעד פעיל הבא: persistence, sessions ו־tracing, ולאחר מכן השוואה קצרה
+  ל־LangGraph לפני החלטה אם יש בו צורך בפרויקט.
+- יעד שהושלם: **Sessions ו־persistence בסיסי ב־Agents SDK**. המשתמש הבדיל
+  בין `RunState` להמשך הרצה שנעצרה לבין `Session` לזיכרון בין הודעות,
+  זיהה ש־`conversation_id` הוא מזהה השיחה, והבין שה־Runner מקבל אובייקט
+  Session ולא מחרוזת ID.
+- נוספה `answer_with_sdk_session()` עם `SQLiteSession`, גבול של 20 items,
+  `max_turns=5` וסגירת חיבור ב־`finally`. בדיקה מקומית שמרה פריט ב־SQLite,
+  סגרה את החיבור, פתחה Session חדש ואימתה שהמידע נשמר.
+- אימות ממוקד ב־2026-11-03: **7 passed in 5.55s**. אימות מלא:
+  **65 passed in 6.29s**. לא בוצעה קריאת OpenAI חיה ולא נצרכה עלות.
+- יעד פעיל הבא: tracing והשוואה קצרה בין Agents SDK ל־LangGraph.
+- יעד שהושלם: **בחירת framework לפי אופי הבעיה**. המשתמש זיהה ש־Agents
+  SDK מתאים לבקשות בשפה טבעית שבהן המודל צריך להבין כוונה ולבחור כלים
+  ומסלול דינמי. הובהר שמסלול קבוע מתאים קודם כול לקוד רגיל, ו־LangGraph
+  מוצדק רק כאשר יש workflow ארוך ומסתעף, state מתמשך, pauses ו־recovery
+  מורכב.
+- LangGraph לא הותקן, משום שאין לו כרגע ערך מדיד לעומת Agents SDK בפרויקט.
+  יעדי framework, state, approvals, sessions ו־tracing של שבוע 4 הושלמו.
+- יעד פעיל הבא: System Design ו־gap analysis לשוק העבודה, כחלק מהכנת
+  Senior Backend / Applied AI שנדרשת החל משבוע 4.
+- יעד שהושלם: **תרגול System Design ראשון למערכת Agent אסינכרונית**.
+  המשתמש בחר נכון להחזיר `202/pending` בזמן human approval, לשמור state
+  במסד נתונים משותף, להעביר עבודה איטית ל־queue, ולמנוע ביצוע כפול בעזרת
+  `approval_id` כ־idempotency key ומעבר status אטומי.
+- המשתמש הבין retries עם אותו idempotency key, את מצבי circuit breaker
+  (`closed`, `open`, `half-open`), הודעות queue שמכילות identifiers בלבד,
+  ואת transactional outbox שמונע אובדן job בין commit לפרסום. משימות
+  המימוש של שבוע 6 נשארו פתוחות; זהו תרגול ארכיטקטורה בלבד.
+- יעד פעיל הבא: gap analysis לשוק העבודה והכנה לראיונות Senior Backend /
+  Applied AI, תוך המשך חיזוק System Design.
+- יעד שהושלם: **תשתית Agent eval מקומית**. המשתמש הבחין בין unit test
+  ללוגיקה דטרמיניסטית לבין AI eval לבחירת tool, arguments והתנהגות מודל,
+  והגדיר נכון expected tool, arguments ו־approval עבור פעולת מחיקה.
+- נוסף dataset עם ארבעה מקרי בסיס: balance, מחיקה שדורשת אישור, ניסיון
+  מחיקה ללא הרשאה ובקשה שחסר בה customer ID. נוסף scorer שמפריד בין
+  requested tool לבין executed tool כדי למדוד גם model behavior וגם
+  system safety.
+- אימות ממוקד ב־2026-11-03: **3 passed in 0.40s**. אימות מלא:
+  **68 passed in 6.44s**. לא הורץ מודל חי; זוהי תשתית offline בלבד ולכן
+  יעד ה־evaluation המדיד המלא של שבוע 6 נשאר פתוח.
 - יעד שהושלם: **Agent execution loop בסיסי**. המשתמש הרכיב לולאה ששומרת
   את היסטוריית הקלט והפלט, מאתרת את כל קריאות הכלים, מפעילה handlers
   מתוך allowlist, מחזירה כל תוצאה באמצעות `call_id`, וממשיכה עד לקבלת
@@ -28,6 +96,20 @@
   OpenAI חיה, לא נדרש API key ולא נצרכה עלות.
 - יעד פעיל הבא: **המשך Agent לאחר ביצוע tool שאושר**, באמצעות החזרת
   `function_call_output` המתאים למודל וקבלת תשובה סופית.
+- יעד שהושלם: **Resume של Agent לאחר אישור אנושי**. המשתמש זיהה שיש
+  לשמור את כל `input_items`, להשתמש ב־`approval_id` כמפתח ייחודי,
+  לאמת בעלות באמצעות `user_id`, להחזיר את תוצאת הכלי עם `call_id`,
+  ולהוסיף dictionary יחיד באמצעות `append()` ולא `extend()`.
+- נוסף אחסון זמני של Agent state, שליפה חד־פעמית עם `pop()`, פונקציית
+  `resume_agent()` ולולאה פנימית משותפת ל־start ול־resume. משתמש זר נחסם,
+  כלי שלא אושר אינו מתבצע, ולאחר הצלחה `function_call_output` נשלח למודל
+  לצורך תשובה סופית.
+- אימות ממוקד ב־2026-11-01: **13 passed in 1.57s**. אימות מלא:
+  **58 passed in 2.73s**. כל הבדיקות מקומיות ומשתמשות ב־mocks; לא בוצעה
+  קריאת OpenAI חיה ולא נצרכה עלות.
+- יעדי הליבה של שבוע 3 הושלמו. מעבר לשבוע 4 ממתין לאישור המשתמש. האחסון
+  הנוכחי נשאר in-memory לצורכי למידה ואינו מיועד ל־production או לכמה
+  workers.
 - יעד חיזוק שהושלם: **יום 5 — Pandas, NumPy ומבחן חוזר**. המשתמש יצר
   `DataFrame`, ניקה ערכי `NaN` ומחרוזות ריקות, הפיק ספירות באמצעות
   `value_counts().to_dict()`, וחישב ממוצע, סינון בוליאני וספירה במערך

@@ -3,6 +3,7 @@ from backend.app.services.tool_calling import TOOL_HANDLERS
 
 
 approvals_store: dict[str, ToolApproval] = {}
+agent_runs: dict[str, list[object]] = {}
 
 
 def save_approval(approval: ToolApproval) -> None:
@@ -11,6 +12,21 @@ def save_approval(approval: ToolApproval) -> None:
 
 def get_approval(approval_id: str) -> ToolApproval | None:
     return approvals_store.get(approval_id)
+
+
+def save_agent_run(
+    approval_id: str,
+    input_items: list[object],
+) -> None:
+    agent_runs[approval_id] = list(input_items)
+
+
+def get_agent_run(approval_id: str) -> list[object] | None:
+    return agent_runs.get(approval_id)
+
+
+def take_agent_run(approval_id: str) -> list[object] | None:
+    return agent_runs.pop(approval_id, None)
 
 
 def approve_tool(

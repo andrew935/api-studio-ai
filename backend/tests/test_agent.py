@@ -5,9 +5,12 @@ from types import SimpleNamespace
 import pytest
 
 from backend.app.schemas.tool_approval import ToolApproval
-from backend.app.services.agent import run_agent
+from backend.app.services.agent import resume_agent, run_agent
 from backend.app.services.approval_store import (
+    agent_runs,
     approvals_store,
+    approve_tool,
+    get_agent_run,
     get_approval,
 )
 from backend.app.services.llm_client import MODEL
@@ -41,8 +44,10 @@ def make_tool_call(customer_id: int, call_id: str):
 @pytest.fixture(autouse=True)
 def clear_approvals_store():
     approvals_store.clear()
+    agent_runs.clear()
     yield
     approvals_store.clear()
+    agent_runs.clear()
 
 
 @pytest.mark.anyio
@@ -161,3 +166,80 @@ async def test_run_agent_pauses_before_sensitive_tool_execution():
     assert result.call_id == "call_delete_42"
     assert result.status == "pending"
     assert get_approval(result.approval_id) is result
+    assert get_agent_run(result.approval_id) is not None
+
+
+@pytest.mark.anyio
+async def test_resume_agent_continues_after_approved_tool():
+    delete_call = SimpleNamespace(
+        type="function_call",
+        name="delete_customer",
+        arguments=json.dumps({"customer_id": 42}),
+        call_id="call_delete_42",
+    )
+    tool_response = SimpleNamespace(
+        output=[delete_call],
+        output_text="",
+    )
+    final_response = SimpleNamespace(
+        output=[],
+        output_text="Customer 42 was deleted.",
+    )
+    client = FakeOpenAIClient([tool_response, final_response])
+
+    approval = await run_agent(
+        "Delete customer 42",
+        client,
+        user_id=17,
+    )
+    assert isinstance(approval, ToolApproval)
+    approve_tool(approval.approval_id, current_user_id=17)
+
+    result = await resume_agent(
+        approval.approval_id,
+        current_user_id=17,
+        client=client,
+    )
+
+    assert result == "Customer 42 was deleted."
+    assert approval.status == "completed"
+    assert get_agent_run(approval.approval_id) is None
+    assert client.responses.requests[1]["input"][-1] == {
+        "type": "function_call_output",
+        "call_id": "call_delete_42",
+        "output": json.dumps(
+            {
+                "customer_id": 42,
+                "status": "deleted",
+            }
+        ),
+    }
+
+
+@pytest.mark.anyio
+async def test_resume_agent_rejects_another_user():
+    delete_call = SimpleNamespace(
+        type="function_call",
+        name="delete_customer",
+        arguments=json.dumps({"customer_id": 42}),
+        call_id="call_delete_42",
+    )
+    response = SimpleNamespace(output=[delete_call], output_text="")
+    client = FakeOpenAIClient([response])
+    approval = await run_agent(
+        "Delete customer 42",
+        client,
+        user_id=17,
+    )
+    assert isinstance(approval, ToolApproval)
+    approve_tool(approval.approval_id, current_user_id=17)
+
+    with pytest.raises(PermissionError, match="another user's agent"):
+        await resume_agent(
+            approval.approval_id,
+            current_user_id=99,
+            client=client,
+        )
+
+    assert approval.status == "approved"
+    assert get_agent_run(approval.approval_id) is not None
