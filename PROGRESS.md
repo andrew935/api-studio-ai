@@ -1,10 +1,119 @@
 # התקדמות מאומתת — API Studio AI
 
-תאריך עדכון אחרון: 2026-11-03.
+תאריך עדכון אחרון: 2026-11-09.
 
 ## מצב הלמידה
 
-- שבוע נוכחי: **שבוע 4 — Frameworks ו־state**.
+- מסלול נוכחי: **Sprint מואץ — 9.11 עד 25.11.2026**. יעדי שבועות 5–8
+  נשמרו אך אורגנו מחדש לפי תוצרים: MVP מאובטח, RAG/MCP קטן, reliability
+  ו־evals, production engineering, תיעוד והכנה לראיונות. Multi-Agent
+  וקליטת WhatsApp ישירה אינם חוסמים את הדדליין.
+- ב־2026-11-08 נבחר כיוון לפרויקט הגמר: **Secure Client Document Hub**.
+  המערכת תציג פרופיל לקוח עם כל ההודעות והמסמכים שהתקבלו מערוצי web,
+  email ו־WhatsApp, תוך שמירת שיוך אופציונלי לתיק משפטי. הרשאה ללקוח
+  מעניקה ב־MVP גישה לכל התיקים והמסמכים שלו; לא יתווסף ACL נפרד לכל תיק.
+  גבול tenant בין משרדים יישמר במודל הנתונים, והפיתוח יתחיל רק עם מידע
+  סינתטי וללא מסמכי לקוחות אמיתיים.
+- ה־MVP צומצם לאחר threat modeling: עובד יבחר לקוח ותיק, יגדיר מסמכים
+  נדרשים וייצר קישור העלאה מאובטח המשויך מראש לישויות אלו. הלקוח יעלה
+  דרך הקישור והמערכת תשייך את הקבצים ללא ניחוש identity מתוך טופס.
+  WhatsApp ישמש בתחילה רק לשליחה ידנית של הקישור; חיבור API ישיר יגיע
+  מאוחר יותר. קלט טלפון לא מאומת לא ישייך מידע אוטומטית ללקוח קיים.
+- נוסף חוזה domain ראשון ב־`schemas/documents.py`: מודל Pydantic
+  `UploadRequest` עם `client_id`, תיק אופציונלי, lifecycle מוגבל,
+  expiration ומגבלת 1–20 קבצים. המשתמש הרכיב את השדות לאחר חיזוק של
+  `Literal`, union type ו־`Field`; עדיין נדרשה הכוונה בדיוק תחבירי
+  ובהזחות. נוספו ארבע בדיקות validation. אימות ממוקד: **4 passed in
+  0.52s**. הסוויטה המלאה נתקעה בתוך sandbox ביצירת socket פנימי של
+  asyncio ב־Windows; מחוץ ל־sandbox עברה: **72 passed in 2.06s**. לא
+  בוצעה קריאת רשת או קריאת OpenAI חיה.
+- נוסף lifecycle מפורש לבקשות העלאה ב־`services/upload_requests.py`.
+  המשתמש הגדיר את מפת המעברים, הבחין בין set ריק ל־dict ריק, ובחר נכון
+  ש־retry של אותו status יהיה no-op idempotent ולא שגיאה. המעברים
+  החוקיים מחזירים שנדרשת כתיבה, retry זהה מחזיר שאין שינוי, ומעבר אסור
+  מעלה exception ייעודי. אימות ממוקד: **14 passed in 0.15s**. אימות מלא
+  מחוץ ל־sandbox: **82 passed in 2.28s**. לא בוצעו קריאות רשת.
+- נוסף שירות token מאובטח לקישורי העלאה באמצעות `secrets.token_urlsafe`,
+  שמירת SHA-256 hash בלבד והשוואה עם `hmac.compare_digest`. המשתמש בחר
+  נכון token אקראי במקום מזהי DB חשופים כדי למנוע enumeration וחשיפת
+  פרטי domain. אימות ממוקד: **17 passed in 0.21s**. אימות מלא מחוץ
+  ל־sandbox: **85 passed in 3.39s**. לא בוצעו קריאות רשת.
+- הותקנה תשתית persistence לקראת PostgreSQL: ‏`SQLAlchemy 2.1.8`,
+  ‏`Alembic 1.20.1`, ‏`asyncpg 0.32.0` ו־`aiosqlite 0.22.1` לבדיקות.
+  הובהר ההבדל בין Pydantic validation, SQLAlchemy ORM ו־Alembic
+  migrations, וכן ש־`token_hash` הוא שדה DB פרטי ואינו נחשף ב־API.
+  ‏`pip check` החזיר `No broken requirements found`; אימות מלא מחוץ
+  ל־sandbox: **85 passed in 1.95s**.
+- נוסף בסיס SQLAlchemy אסינכרוני עם `DeclarativeBase`, יצירת engine
+  ו־`async_sessionmaker` שמפיק session נפרד לכל request/task. המשתמש
+  בחר integer primary keys והבין שה־session מנהל transaction ומעקב
+  שינויים בעוד שה־engine וה־pool משותפים. נוספו מודלים ראשונים עבור
+  tenants, clients, matters ו־upload requests. composite foreign keys
+  אוכפים שתיק ובקשת העלאה שייכים לאותו tenant ולאותו client. בדיקות DB
+  אסינכרוניות עם SQLite בזיכרון אימתו שמירה חוקית ודחיית matter של לקוח
+  אחר. אימות ממוקד: **2 passed in 0.53s**; אימות מלא מחוץ ל־sandbox:
+  **87 passed in 2.46s**.
+- נוספה סביבת Alembic אסינכרונית ו־migration ראשונית שיוצרת לפי סדר
+  התלויות tenants, clients, matters ו־upload requests, ומוחקת אותן בסדר
+  ההפוך. `DATABASE_URL` נדרש בזמן migration ואינו נשמר בקוד. בדיקת
+  migration יצרה DB זמני, הריצה `upgrade head`, אימתה את הטבלאות והריצה
+  `downgrade base`. אימות ממוקד: **1 passed in 0.70s**; אימות מלא מחוץ
+  ל־sandbox: **88 passed in 4.17s**.
+- הוחלט ש־token נוצר רק במעבר `draft -> active`. בהתאם, `token_hash`
+  הפך nullable ב־draft ונוסף DB check constraint שמחייב token במצבי
+  `active`, ‏`completed` ו־`expired`, מאפשר revoke לפני או אחרי activation,
+  ומונע draft עם token. מאחר שה־migration טרם נפרסה או נכנסה ל־commit,
+  עודכנה ה־migration הראשונית במקום ליצור revision נוסף. אימות DB
+  ו־migration ממוקד: **4 passed in 0.59s**; אימות מלא מחוץ ל־sandbox:
+  **89 passed in 2.60s**.
+- נוסף `activate_upload_request()` שמייצר raw token, שומר hash, מעביר
+  ל־`active` ומבצע commit יחיד; שגיאה גורמת rollback. המשתמש זיהה לאחר
+  תיקון שה־status וה־token תלויים זה בזה ולכן חייבים atomic transaction.
+  activation של status שאינו draft נדחה, וה־raw token אינו נשמר. אימות
+  ממוקד: **12 passed in 0.41s**; אימות מלא מחוץ ל־sandbox: **91 passed
+  in 2.53s**.
+- activation הוקשח ל־atomic conditional update עם תנאי `status = draft`
+  ו־tenant scope, כך שרק request מתחרה אחד יכול ליצור token תקף. ניסיון
+  activation נוסף אינו מחליף את ה־hash הראשון ומעלה conflict. במהלך
+  הבדיקות נמצא ש־rollback מסמן ORM objects כ־expired; הבדיקה תוקנה לבצע
+  `session.refresh()` מפורש במקום להפעיל implicit async I/O. אימות ממוקד:
+  **13 passed in 0.45s**; אימות מלא מחוץ ל־sandbox: **92 passed in
+  2.89s**.
+- כאשר conditional activation מעדכן אפס שורות, השירות מבצע lookup נוסף
+  בתוך אותו tenant בלבד: רשומה שאינה קיימת או שייכת ל־tenant אחר מעלה
+  `UploadRequestNotFound` המיועד ל־404, ורשומה קיימת שאינה draft מעלה
+  `UploadRequestActivationConflict` המיועד ל־409. המשתמש מיפה נכון את
+  שני המצבים. אימות ממוקד: **14 passed in 0.48s**; אימות מלא מחוץ
+  ל־sandbox: **93 passed in 3.08s**.
+- ב־2026-11-08 המשתמש בחר במיצוב ראשי **Senior Backend Engineer — AI
+  Systems** ובמיצוב משני **Applied AI / Forward Deployed Engineer**.
+  המשך התוכנית יתעדף Python עצמאי, system design, distributed systems,
+  reliability ו־production delivery, ובמקביל יבנה יכולות RAG, evals
+  ואינטגרציות הנדרשות למסלול המשני.
+- ב־2026-11-08 החל מחקר שוק עדכני לתפקידי Forward Deployed Engineer,
+  Applied AI Engineer ו־Senior Backend for AI בישראל. מודעות פעילות חזרו
+  על Python חזק, פתרון בעיות עסקיות עמומות מקצה לקצה, RAG/agents/tool
+  calling, evals מדידים, distributed systems, cloud, CI/CD, observability
+  והפעלת מערכות production. החוזקות הקיימות הן ניסיון backend ו־APIs,
+  ארכיטקטורה, tool calling, approvals ובדיקות; הפערים העיקריים הם עצמאות
+  תחבירית ב־Python, RAG/MCP, פריסת cloud ו־production observability,
+  evaluation חי ותיק עבודות מקצה לקצה.
+- ב־2026-11-08 הושלם תרגול ראיון System Design נוסף. המשתמש בחר `202`
+  עבור approval ועבודה ארוכה, DB משותף ל־state עמיד, `approval_id`
+  כ־idempotency key, מעבר אטומי ל־`executing` ובדיקת המערכת החיצונית לפני
+  retry של רשומה תקועה. הוא הסביר את מצבי circuit breaker; חודד שהמצבים
+  מייצגים את מדיניות ה־breaker ולא ודאות שמצב השירות החיצוני תקין או לא.
+- ב־2026-11-08 בוצע בלוק חיזוק ממוקד בתחביר Python: מילון מקונן לבקשת
+  tool, הפעלת handler אסינכרוני מתוך allowlist ובדיקת pytest פרמטרית.
+  המשתמש השלים את שלושת המבנים, אך נדרשה הכוונה בשמות מפתחות במילון,
+  בהבחנה בין שם tool ל־handler ובהצמדת הבדיקה למחלקה הנכונה. לכן יעד
+  8/10 ללא הכוונה נשאר פתוח ואינו חוסם את המשך שבוע 4.
+- ב־2026-11-05 הושלם מבחן חיזוק Python נוסף בתוצאה **7.5/10**. המשתמש
+  פתר נכון ספירת מילון, `dataclass` וולידציה, טעינת JSON, Pydantic,
+  Pandas, NumPy, async tool execution ומבנה eval לאחר הכוונה. נקודת
+  החיזוק המרכזית שנותרה היא דיוק תחבירי עצמאי: הזחות, פסיקים, `:` בתוך
+  מילון, איות שמות API, `await`, סוגריים מרובעים בסינון NumPy והבחנה בין
+  מחרוזת לשם משתנה. יעד 8/10 ללא הכוונה עדיין פתוח.
 - ב־2026-11-02 המשתמש אישר מעבר לשבוע 4. יעד פעיל: להבין מה OpenAI
   Agents SDK מנהל עבורנו לעומת הלולאה הידנית, ומה חייב להישאר באחריות
   האפליקציה. טרם נוסף framework לקוד.
@@ -464,6 +573,23 @@ preview רק מחזיר את הקלט. הפעלת `GET /api/v1/requests/test` ש
 - בדיקות אוטומטיות ממשיכות להשתמש ב־mock; בדיקה חיה מתועדת בנפרד.
 
 ## תרגילים והבנה
+
+- המשתמש הבחין בין `dict`, ‏`tuple`, ‏`dataclass` ו־Pydantic, ובנה
+  `ActivatedUploadRequest` פנימי עם `frozen=True`. שירות ה־activation
+  מחזיר כעת מאותה פעולת `UPDATE ... RETURNING` את המזהה וה־expiration,
+  יחד עם ה־raw token שקיים בזיכרון בלבד. אימות ממוקד מחוץ לבידוד:
+  **14 passed in 0.54s**; אימות מלא: **97 passed in 5.12s**.
+
+- המשתמש בנה נכון מופע `UploadRequestActivationResponse` באמצעות keyword
+  arguments עבור `upload_request_id`, ‏`upload_url` ו־`expires_at`. נוסף
+  schema שמגביל את הסטטוס ל־`active` ומאמת את הקישור באמצעות `HttpUrl`.
+
+- המשתמש זיהה נכון ש־`.env.example` נכנס ל־Git עם שמות משתנים וערכי
+  דוגמה בלבד, בעוד `.env` האמיתי נשאר מחוץ ל־Git משום שהוא עשוי להכיל
+  credentials ו־secrets. הוחלט לקרוא את `PUBLIC_BASE_URL` מהגדרות השרת
+  ולא מכותרת `Host` הנשלטת בידי הלקוח. נוספה שכבת `Settings` מאומתת עם
+  `pydantic-settings 2.16.2`; שתי בדיקות ההגדרות עברו, ולאחר מכן כל
+  הסוויטה עברה מחוץ לבידוד: **95 passed in 2.97s**.
 
 - תרגיל `fetch_demo_user_count()` — הוגש ניסיון ונעשה review.
 - המשתמש זיהה לאחר ההסבר שקריאה ל־coroutine ללא `await` אינה מספקת את
