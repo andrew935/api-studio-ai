@@ -151,6 +151,8 @@ def test_openapi_preserves_routes_and_schema(client):
         "/api/v1/public/uploads/session",
         "/api/v1/public/uploads/requirements/{document_requirement_id}/submissions",
         "/api/v1/upload-requests/{upload_request_id}/activate",
+        "/health/live",
+        "/health/ready",
     }
     schema = document["components"]["schemas"]["APIRequest"]
     assert set(schema["required"]) == {"url", "method"}

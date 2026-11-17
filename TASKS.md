@@ -164,7 +164,7 @@ human-in-the-loop, persistence ודיבוג Agents.
 - [x] לארוז את האפליקציה ב־Docker עם configuration ו־secrets מאובטחים.
 - [x] לבנות GitHub Actions עבור tests ו־build, ולהוסיף deployment אם
   סביבת הענן מוכנה.
-- [ ] להוסיף structured logging, health checks ומדדי monitoring בסיסיים.
+- [x] להוסיף structured logging, health checks ומדדי monitoring בסיסיים.
 - [ ] לבצע production hardening: הרשאות, rate limits, timeouts, טיפול
   בכשלים ותיעוד rollback/recovery.
 

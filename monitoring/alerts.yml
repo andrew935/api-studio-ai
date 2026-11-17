@@ -1,0 +1,40 @@
+groups:
+  - name: api-studio-ai
+    rules:
+      - alert: ApiTargetDown
+        expr: up{job="api-studio-ai"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API target is unavailable
+          description: Prometheus has been unable to scrape the API for two minutes.
+
+      - alert: ApiHigh5xxRate
+        expr: |
+          (
+            sum(rate(api_studio_http_requests_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(api_studio_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: API has a sustained high error rate
+          description: More than 5% of API requests have returned 5xx for five minutes.
+
+      - alert: ApiHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(api_studio_http_request_duration_seconds_bucket[5m])
+            )
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: API p95 latency is high
+          description: API p95 request latency has exceeded two seconds for ten minutes.

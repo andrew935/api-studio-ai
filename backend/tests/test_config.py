@@ -17,6 +17,7 @@ def test_settings_accept_server_configuration() -> None:
     assert settings.database_url.startswith("postgresql+asyncpg://")
     assert str(settings.public_base_url) == "https://documents.example.com/"
     assert settings.max_upload_size_mb == 15
+    assert settings.log_level == "INFO"
 
 
 def test_settings_reject_invalid_public_base_url() -> None:

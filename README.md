@@ -26,6 +26,46 @@ the upload volume writable.
 If host port `8000` is already used, set both `API_HOST_PORT` and
 `PUBLIC_BASE_URL` to another local port, for example `8002`.
 
+### Health checks
+
+- `GET /health/live` reports whether the FastAPI process is running and does
+  not access external dependencies. Docker uses this endpoint for its
+  container health check.
+- `GET /health/ready` runs `SELECT 1` against PostgreSQL. It returns `200` when
+  the API can receive traffic and a generic `503` response when the database
+  is unavailable, without exposing internal database errors.
+
+### Structured request logs
+
+Application request logs are emitted as one-line JSON to standard error. Each
+response includes an `X-Request-ID` header matching the log record. Logged
+fields include the HTTP method, path without its query string, status code and
+duration. Request bodies, authorization headers, cookies, query parameters and
+document contents are not logged. Configure the minimum level with
+`LOG_LEVEL`, which defaults to `INFO`.
+
+### Metrics
+
+Prometheus-format metrics are exposed at `GET /metrics/`. The API records a
+request counter and request-duration histogram with only low-cardinality
+labels: HTTP method, FastAPI route template and status class. Actual resource
+IDs, request IDs, user IDs and customer data are never labels. In production,
+the metrics endpoint must be reachable only by the monitoring network or
+protected by the reverse proxy; it should not be publicly exposed.
+
+Start the optional local Prometheus profile after the application is healthy:
+
+```powershell
+docker compose --profile monitoring up -d --wait prometheus
+```
+
+The UI is bound to `http://127.0.0.1:9090`. Prometheus scrapes the API every
+15 seconds and evaluates alerts for target availability, sustained 5xx rate
+and p95 latency. The rules intentionally use `for` durations to avoid alerts
+from one isolated failure. This local setup displays firing rules but does not
+send notifications; production must route them through Alertmanager or the
+chosen cloud monitoring provider.
+
 ## Bootstrap the first tenant administrator
 
 The bootstrap command creates the first tenant and its admin in one database

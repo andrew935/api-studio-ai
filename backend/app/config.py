@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     jwt_issuer: str = Field(min_length=1)
     jwt_audience: str = Field(min_length=1)
     access_token_expire_minutes: int = Field(ge=5, le=1440)
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     mcp_server_url: HttpUrl = HttpUrl("http://localhost:8001/mcp")
     mcp_auth_issuer_url: HttpUrl = HttpUrl("http://localhost:8000")
     mcp_bind_host: str = "127.0.0.1"

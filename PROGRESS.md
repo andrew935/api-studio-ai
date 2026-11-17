@@ -32,6 +32,38 @@
   ל־`main`, ריצת GitHub Actions מספר `44066346095` הסתיימה בהצלחה:
   גם `Python tests` וגם `Docker build` עברו. משימת GitHub Actions
   סומנה כהושלמה; deployment נשאר מחוץ להיקף עד לבחירת סביבת ענן.
+- הושלמו health checks נפרדים: `GET /health/live` בודק רק שה־FastAPI
+  process חי, ו־`GET /health/ready` מריץ `SELECT 1` מול PostgreSQL
+  ומחזיר `503` גנרי ללא דליפת פרטי שגיאה כאשר ה־DB אינו זמין. Docker
+  עודכן להשתמש ב־liveness. המשתמש זיהה תחילה `400`, תיקן את ההבנה
+  ל־`503 Service Unavailable`, וכתב את מבנה ה־`try/except` של readiness.
+  אימות ממוקד: **21 passed in 10.78s**; אימות מלא:
+  **245 passed, 1 skipped in 19.10s**; `docker compose config --quiet` עבר.
+- נוסף structured HTTP logging בפורמט JSON באמצעות Python logging, ללא
+  dependency חדש. כל בקשה מקבלת `request_id` אקראי שמוחזר ב־`X-Request-ID`;
+  הלוג כולל method, path ללא query string, status ו־duration. אין רישום של
+  body, headers, cookies, query parameters או תוכן מסמכים. המשתמש הסביר
+  נכון שיש לשמור רק metadata ו־reference בטוחים ולא לחשוף את כל הבקשה.
+  נוספה הגדרת `LOG_LEVEL`, ונבדק מפורשות ש־token ב־query וב־Authorization
+  אינו מופיע בלוג. אימות ממוקד: **7 passed in 10.87s**; אימות מלא:
+  **247 passed, 1 skipped in 18.31s**.
+- נוסף endpoint של Prometheus ב־`GET /metrics/` עם counter לבקשות ו־histogram
+  לזמן תגובה. ה־labels מוגבלים ל־method, route template ו־status class;
+  אין שימוש ב־request/user/customer/document IDs. המשתמש הבין ש־metrics
+  מזהים בעיה מצטברת, logs מתארים אירוע ספציפי ו־traces עוקבים אחר מסלול
+  בקשה, וכן שהבעיה ב־IDs כ־labels היא high cardinality. בדיקה ייעודית
+  מוכיחה ש־ID דינמי אינו מופיע ב־metrics. אימות ממוקד:
+  **7 passed in 9.77s**; אימות מלא: **249 passed, 1 skipped in 23.54s**;
+  image בשם `api-studio-ai:metrics-validation` נבנה בהצלחה עם dependency
+  `prometheus-client==0.26.0`.
+- נוספו Prometheus configuration ו־alert rules: target שאינו ניתן ל־scrape
+  במשך 2 דקות, שיעור 5xx מעל 5% במשך 5 דקות, ו־p95 latency מעל 2 שניות
+  במשך 10 דקות. המשתמש בחר נכון בתנאי מתמשך במקום alert על שגיאה יחידה,
+  כדי להבחין בין אירוע נקודתי לבעיה נמשכת. נוסף Compose profile אופציונלי
+  ל־Prometheus 3.16.0 על localhost בלבד. `promtool` אימת configuration אחד
+  ושלושה rules, ו־`docker compose --profile monitoring config --quiet` עבר.
+  Notifications אינם מוגדרים מקומית; בפריסה אמיתית יחובר Alertmanager או
+  שירות monitoring של ספק הענן. משימת logging/health/monitoring סומנה כהושלמה.
 - הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
   זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
   ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency
