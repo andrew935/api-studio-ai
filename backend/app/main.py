@@ -18,6 +18,7 @@ from backend.app.db.session import (
     create_session_factory,
 )
 from backend.app.services.file_storage import create_file_storage
+from backend.app.services.rate_limiter import create_rate_limiter
 from backend.app.logging import configure_logging, log_http_request
 
 
@@ -28,11 +29,13 @@ async def lifespan(app: FastAPI):
     engine = create_database_engine(settings.database_url)
     app.state.database_session_factory = create_session_factory(engine)
     app.state.file_storage = create_file_storage(settings)
+    app.state.rate_limiter = create_rate_limiter(settings)
 
     try:
         yield
     finally:
         await app.state.file_storage.close()
+        await app.state.rate_limiter.close()
         await engine.dispose()
 
 

@@ -66,6 +66,19 @@ from one isolated failure. This local setup displays firing rules but does not
 send notifications; production must route them through Alertmanager or the
 chosen cloud monitoring provider.
 
+## Login rate limiting
+
+Login attempts are limited through shared Redis counters for the client IP,
+normalized email and IP/email pair. Both IP and email are converted to keyed
+HMAC identifiers before being used in Redis keys. Exceeded limits return
+`429 Too Many Requests` with `Retry-After`; an unavailable limiter returns a
+generic `503` rather than bypassing authentication protection. Redis stores
+only temporary counters with TTLs, so persistence is intentionally disabled.
+
+The application reads the direct peer address. A production reverse proxy must
+be configured as a trusted proxy before forwarded client addresses are used;
+the API must never trust arbitrary `X-Forwarded-For` values from the internet.
+
 ## Bootstrap the first tenant administrator
 
 The bootstrap command creates the first tenant and its admin in one database

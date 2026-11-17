@@ -13,6 +13,7 @@ from backend.app.services.security import (
     decode_access_token,
 )
 from backend.app.services.file_storage import FileStorage
+from backend.app.services.rate_limiter import RateLimiter
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -44,6 +45,10 @@ async def get_database_session(
 
 def get_file_storage(request: Request) -> FileStorage:
     return request.app.state.file_storage
+
+
+def get_rate_limiter(request: Request) -> RateLimiter:
+    return request.app.state.rate_limiter
 
 
 async def get_current_user(

@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     jwt_issuer: str = Field(min_length=1)
     jwt_audience: str = Field(min_length=1)
     access_token_expire_minutes: int = Field(ge=5, le=1440)
+    redis_url: str = "redis://localhost:6379/0"
+    rate_limit_hmac_key: SecretStr = Field(min_length=32)
+    login_ip_limit: int = Field(default=100, ge=1, le=10_000)
+    login_ip_window_seconds: int = Field(default=900, ge=1, le=86_400)
+    login_email_limit: int = Field(default=10, ge=1, le=1_000)
+    login_email_window_seconds: int = Field(default=900, ge=1, le=86_400)
+    login_pair_limit: int = Field(default=5, ge=1, le=1_000)
+    login_pair_window_seconds: int = Field(default=300, ge=1, le=86_400)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     mcp_server_url: HttpUrl = HttpUrl("http://localhost:8001/mcp")
     mcp_auth_issuer_url: HttpUrl = HttpUrl("http://localhost:8000")

@@ -63,7 +63,18 @@
   ל־Prometheus 3.16.0 על localhost בלבד. `promtool` אימת configuration אחד
   ושלושה rules, ו־`docker compose --profile monitoring config --quiet` עבר.
   Notifications אינם מוגדרים מקומית; בפריסה אמיתית יחובר Alertmanager או
-  שירות monitoring של ספק הענן. משימת logging/health/monitoring סומנה כהושלמה.
+  שירות monitoring של ספק הענן. GitHub Actions run `44085485185` עבר עם
+  `Python tests` ו־`Docker build` ירוקים. משימת logging/health/monitoring
+  סומנה כהושלמה.
+- הושלם rate limiting ל־login באמצעות Redis משותף ו־Lua אטומי שמבצע
+  `INCR` ו־`EXPIRE` יחד. קיימים limits נפרדים ל־IP, email ולצירוף ביניהם;
+  שני המזהים נשמרים רק כ־HMAC. חריגה מחזירה `429` עם `Retry-After`, וכשל
+  Redis מחזיר `503` במקום לעקוף את ההגנה. המשתמש זיהה ש־email-based limit
+  שייך ל־FastAPI ולא ל־reverse proxy, והבין שה־email האמיתי נשאר בטבלת
+  users בעוד Redis צריך רק identifier זמני. נוסף Redis 8.8.4 פנימי ל־Compose
+  ללא persistence. אימות ממוקד לאחר הגנת ה־IP: **13 passed in 7.27s**;
+  אימות מלא: **257 passed, 1 skipped in 17.18s**; Compose config עבר;
+  smoke test אמיתי החזיר `PING=PONG` ו־Lua result של count `1` עם TTL `30`.
 - הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
   זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
   ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency
