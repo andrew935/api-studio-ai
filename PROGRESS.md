@@ -23,6 +23,14 @@
   ה־API container רץ כ־UID `999` וניסיון כתיבה ל־root filesystem נדחה כ־`read-only`.
   משימת Docker סומנה כהושלמה. ה־API ו־MCP containers נשארו פועלים
   מקומית בסיום האימות.
+- הותחל GitHub Actions CI. נוסף workflow שמופעל ב־Pull Request,
+  ב־push ל־`main` ובהפעלה ידנית. job ראשון מתקין Python 3.12 ואת
+  `requirements-dev.txt` ומריץ Pytest; job שני תלוי בהצלחתו ובונה את
+  Docker image. נוספו הרשאות read-only, ביטול ריצות ישנות ו־timeouts.
+  פקודת הבדיקות אומתה מקומית: **242 passed, 1 skipped in 20.28s**,
+  ו־`docker build --tag api-studio-ai:ci .` הסתיים בהצלחה. ה־workflow
+  טרם רץ על GitHub משום שהחיבור ל־`github.com:443` נכשל, ולכן משימת
+  GitHub Actions עדיין לא סומנה כהושלמה.
 - הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
   זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
   ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency
