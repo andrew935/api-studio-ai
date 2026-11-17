@@ -28,6 +28,11 @@ def test_initial_migration_upgrades_and_downgrades(tmp_path):
         "clients",
         "matters",
         "upload_requests",
+            "users",
+            "document_requirements",
+            "document_submissions",
+            "document_chunks",
+            "outbox_jobs",
     }.issubset(table_names)
 
     command.downgrade(alembic_config, "base")

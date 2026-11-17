@@ -135,33 +135,33 @@ human-in-the-loop, persistence ודיבוג Agents.
 
 ### 9–12.11 — ליבת Secure Client Document Hub
 
-- [ ] להשלים activation endpoint עם tenant scope, קישור ציבורי מאובטח,
+- [x] להשלים activation endpoint עם tenant scope, קישור ציבורי מאובטח,
   response model ומיפוי 404/409.
-- [ ] להשלים זרימת upload בסיסית עם token hash, expiration, file metadata
+- [x] להשלים זרימת upload בסיסית עם token hash, expiration, file metadata
   וסטטוס, באמצעות מידע סינתטי בלבד.
-- [ ] להריץ migration ובדיקת integration מול PostgreSQL מקומי.
-- [ ] לשמור על בדיקות regression ולעבור חיזוק Python קצר דרך הקוד האמיתי.
+- [x] להריץ migration ובדיקת integration מול PostgreSQL מקומי.
+- [x] לשמור על בדיקות regression ולעבור חיזוק Python קצר דרך הקוד האמיתי.
 
 ### 13–15.11 — RAG, MCP ואינטגרציות
 
-- [ ] לבנות vertical slice קטן: עיבוד מסמך סינתטי, retrieval והחזרת
+- [x] לבנות vertical slice קטן: עיבוד מסמך סינתטי, retrieval והחזרת
   תשובה עם מקור.
-- [ ] לחבר את ה־Agent ל־retrieval ול־API tool עם authentication והרשאות.
-- [ ] להבין MCP ולבצע integration קטן אחד; אין צורך לבנות vector platform
+- [x] לחבר את ה־Agent ל־retrieval ול־API tool עם authentication והרשאות.
+- [x] להבין MCP ולבצע integration קטן אחד; אין צורך לבנות vector platform
   מלאה אם retrieval פשוט מספיק ל־MVP.
 
 ### 16–18.11 — System Design, reliability ו־AI evals
 
-- [ ] לתכנן queue ו־workers לעיבוד מסמכים, כולל transactional outbox.
-- [ ] לממש idempotency, retries ו־circuit breaker עבור תלות חיצונית אחת.
-- [ ] להגדיר evaluation מדיד עם dataset מייצג, איכות, latency, עלות
+- [x] לתכנן queue ו־workers לעיבוד מסמכים, כולל transactional outbox.
+- [x] לממש idempotency, retries ו־circuit breaker עבור תלות חיצונית אחת.
+- [x] להגדיר evaluation מדיד עם dataset מייצג, איכות, latency, עלות
   וקריטריוני הצלחה.
 - [ ] אופציונלי בלבד: Multi-Agent, ורק אם הוא נותן ערך מדיד לעומת Agent
   יחיד.
 
 ### 19–21.11 — Production Engineering
 
-- [ ] לארוז את האפליקציה ב־Docker עם configuration ו־secrets מאובטחים.
+- [x] לארוז את האפליקציה ב־Docker עם configuration ו־secrets מאובטחים.
 - [ ] לבנות GitHub Actions עבור tests ו־build, ולהוסיף deployment אם
   סביבת הענן מוכנה.
 - [ ] להוסיף structured logging, health checks ומדדי monitoring בסיסיים.

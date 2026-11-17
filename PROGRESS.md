@@ -1,9 +1,89 @@
 # התקדמות מאומתת — API Studio AI
 
-תאריך עדכון אחרון: 2026-11-09.
+תאריך עדכון אחרון: 2026-11-17.
 
 ## מצב הלמידה
 
+- הותחל בלוק Production Engineering עם Docker. המשתמש הסביר ש־API,
+  MCP ו־migration שייכים לאותה אפליקציה צריכים להשתמש באותו image; הובהר
+  שכך בונים ובודקים artifact אחד ומונעים version drift. נוספו multi-stage
+  `Dockerfile`, ־`.dockerignore` ו־Compose עם PostgreSQL, ־migration job חד־פעמי, API
+  ו־MCP. ה־containers של האפליקציה מוגדרים non-root, עם filesystem לקריאה בלבד,
+  ללא Linux capabilities ועם secrets מ־environment. `docker compose config --quiet`
+  עבר, בדיקות configuration ממוקדות עברו **7 passed in 1.24s**, והסוויטה
+  המלאה עברה **242 passed, 1 skipped in 8.60s**. בניית image בפועל
+  טרם אומתה: Docker Desktop מותקן אך ה־Linux engine אינו פועל, וניסיון
+  הפעלה ברקע נסגר מייד. משימת Docker לא סומנה כהושלמה.
+- לאחר הפעלת Docker Desktop הושלם אימות Docker בפועל. ה־image
+  `api-studio-ai:validation` נבנה בהצלחה, ו־Compose הפעיל PostgreSQL,
+  migration, API ו־MCP. פורט 8000 היה תפוס על־ידי container לא קשור,
+  ולכן נוספה הגדרת `API_HOST_PORT` וה־smoke test רץ על 8002 בלי לעצור
+  מערכת אחרת. FastAPI החזיר את תשובת ה־root הצפויה, MCP החזיר
+  **401** ללא token, ו־PostgreSQL דיווח Alembic revision `20261116_0005`.
+  ה־API container רץ כ־UID `999` וניסיון כתיבה ל־root filesystem נדחה כ־`read-only`.
+  משימת Docker סומנה כהושלמה. ה־API ו־MCP containers נשארו פועלים
+  מקומית בסיום האימות.
+- הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
+  זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
+  ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency
+  ושהוא מיושם בפרויקט באמצעות החלפה אטומית של chunks.
+- המשתמש הסביר נכון ש־idempotency key דטרמיני מאפשר לזהות retry
+  של אותה פעולה, ושנעילת רשומה מונעת משני workers לקבל את אותו
+  job. הוא זיהה ש־`SKIP LOCKED` מאפשר ל־workers אחרים לעבוד על jobs
+  אחרים במקום להמתין. נוספו migration ומודל `outbox_jobs`, אישור
+  אטומי עם enqueue, ו־`claim_next_job()` עם `FOR UPDATE SKIP LOCKED`.
+  אימות ממוקד: **6 passed in 2.32s**.
+- המשתמש חישב נכון backoff מעריכי של 4 דקות בניסיון השלישי וזיהה
+  ש־`locked_at` מאפשר לזהות job שנתקע. נוסף recovery שמחזיר job ל־`pending`
+  עם `available_at` עתידי, או מעביר ל־`failed` אחר חמישה ניסיונות.
+  אימות ממוקד: **12 passed in 2.41s**. בנוסף, המשתמש זיהה את ה־trade-off
+  בין התקדמות חלקית לעקביות, והסביר שאין להחזיק transaction ונעילות
+  בזמן I/O ארוך ל־S3; רק שמירת ה־chunks וסיום ה־job יכנסו ל־transaction
+  קצרה אחת.
+- הושלם תכנון ומימוש ליבת queue/worker מבוססת PostgreSQL outbox:
+  אישור מסמך ויצירת job ב־transaction אחת, key דטרמיני וייחודי,
+  claim עם `FOR UPDATE SKIP LOCKED`, ־lease עם `locked_at`, ־exponential backoff,
+  מספר ניסיונות מרבי, recovery של jobs תקועים ומצב `failed`. שמירת
+  chunks נגזרים וסימון job כ־`completed` מתבצעים ב־transaction קצרה
+  אחת, בעוד S3 ועיבוד ארוך נשארים מחוץ ל־transaction. אימות ממוקד:
+  **19 passed in 3.69s**; אימות מלא: **229 passed, 1 skipped in 19.24s**.
+- הושלם Circuit Breaker אסינכרוני סביב S3 עם המצבים `closed`,
+  `open` ו־`half_open`, בקשת probe אחת וכשל מהיר כשהמעגל פתוח. Timeouts,
+  שגיאות connection ו־5xx נספרות כשלים זמניים; ־401/403 פותחות מייד
+  את המעגל; ושגיאות קלט אינן נספרות ככשל S3. המשתמש הסביר נכון
+  ש־credentials שגויים לא ישתנו בעקבות retry ולכן אין טעם להמשיך לשלוח
+  בקשות. ה־threshold וזמן ה־recovery ניתנים להגדרה. אימות ממוקד:
+  **12 passed in 1.02s**; אימות מלא: **234 passed, 1 skipped in 12.52s**.
+- הותחל RAG evaluation מדיד. המשתמש בנה eval case לשאלת תקופת
+  ביטול והבין שתשובה נכונה עם source שגוי צריכה להיכשל, משום שהיא
+  עלולה להיות ניחוש או מידע לא מורשה. הוא אישר שבמקרה של tenant leak
+  אסור להציג את התשובה וה־eval נכשל כולו. נוספו dataset סינתטי התחלתי,
+  scorer לאיכות, sources, latency, cost ו־tenant isolation, ודוח מצרפי.
+  אימות ראשוני: **9 passed in 0.17s**. יעדי ה־MVP הזמניים הם 90%
+  pass rate, ־100% source accuracy, ־p95 של עד 2 שניות, עלות ממוצעת של עד
+  $0.01 ואפס דליפות; הם יכוילו לאחר baseline מייצג.
+- הושלמה הגדרת RAG evaluation עם 20 מקרים סינתטיים בשש קטגוריות:
+  factual, no-answer, multi-source, ambiguous, prompt injection ו־tenant isolation.
+  ה־scorer בודק required ו־forbidden terms, התאמת sources, ־latency, עלות
+  ודליפות; הדוח מציג pass rate כללי ולפי קטגוריה, source/safety
+  accuracy, ־p95 latency ועלות ממוצעת. המשתמש הבין ששאלת no-answer
+  בודקת abstention ושתשובה ללא מקור צריכה להיכשל. אימות ממוקד:
+  **22 passed in 1.54s**; אימות מלא: **242 passed, 1 skipped in 10.01s**.
+  טרם הורץ baseline חי עם model/API ולכן לא נטענה טענה על איכות המודל
+  בפועל; התשתית וה־gates מוכנים להרצה כשיהיה corpus סינתטי זרוע
+  ותקציב model מאושר.
+- הותחל חיבור MCP קטן ומאובטח. המשתמש הסביר נכון שהזהות
+  ב־JWT צריכה להיבדק מול ה־DB בכל בקשה, כדי לאפשר ביטול
+  הרשאות מיידי ולמנוע הסתמכות על `tenant_id` או role שהלקוח
+  שולח. הוחלט שכלי MCP לא יחשוף `tenant_id` כפרמטר.
+- הושלם MCP resource server קטן עם `MCPServer` ו־Streamable HTTP. הוא
+  מאמת את ה־JWT הקיים, טוען משתמש פעיל מה־DB, גוזר משם tenant
+  ו־role, וחושף רק `search_documents(query, limit)`. ה־tool משתמש
+  באותו שירות retrieval של ה־Agent ומחפש רק approved documents של
+  ה־tenant המאומת. המשתמש כתב חוזה tool עם `query`, הבין ש־`ctx`
+  מוזרק ואינו חשוף למודל, והסביר למה בודקים הרשאות מול ה־DB
+  בכל בקשה. אימות ממוקד: **25 passed in 8.60s**; אימות מלא:
+  **215 passed, 1 skipped in 14.41s**. לא בוצעה קריאת model או רשת חיה.
 - מסלול נוכחי: **Sprint מואץ — 9.11 עד 25.11.2026**. יעדי שבועות 5–8
   נשמרו אך אורגנו מחדש לפי תוצרים: MVP מאובטח, RAG/MCP קטן, reliability
   ו־evals, production engineering, תיעוד והכנה לראיונות. Multi-Agent
@@ -573,6 +653,234 @@ preview רק מחזיר את הקלט. הפעלת `GET /api/v1/requests/test` ש
 - בדיקות אוטומטיות ממשיכות להשתמש ב־mock; בדיקה חיה מתועדת בנפרד.
 
 ## תרגילים והבנה
+
+- המשתמש בחר נכון `get_current_user` עבור endpoint ה־Agent משום שנדרשים
+  user ID, tenant ID ו־role לקביעת הרשאות. הוא תיקן constraints של
+  מחרוזות מ־`ge/le` ל־`min_length/max_length` והגדיר request/response
+  models עם `Field`. נוסף endpoint מאומת
+  `POST /api/v1/ai/agent/documents/answer`, שמייצר server context מהמשתמש
+  המאומת ומעביר allowlist לפי role. גם `admin` וגם `staff` מקבלים כרגע
+  רק search read-only; role לא ידוע מקבל set ריק. אימות ממוקד:
+  **29 passed in 8.54s**; אימות מלא:
+  **210 passed, 1 skipped in 14.03s**. משימת Agent + retrieval +
+  authentication סומנה כהושלמה.
+
+- המשתמש כתב נכון חתימת `sdk_search_documents(query, limit)` ללא
+  `tenant_id` או DB session שנשלטים בידי המודל. הוא הגדיר
+  `DocumentAgentContext` עם user, tenant, session ו־`set[str]` של tools,
+  הבין שהשרת יוצר אותו לאחר authentication, ותיקן membership check אל
+  `"sdk_search_documents" not in context.context.allowed_tools`. לאחר מכן
+  העביר ל־retrieval את ה־session וה־tenant מתוך server context. נוסף
+  `sdk_search_documents` read-only tool ו־`document_agent`; ה־tool schema
+  חושף למודל רק `query` ו־`limit`, בעוד allowlist, tenant ו־session נשארים
+  בצד השרת. הובהר שב־strict Agents SDK schema גם `limit` עם default מופיע
+  ב־`required`. אימות ממוקד: **11 passed in 6.36s**; אימות מלא:
+  **201 passed, 1 skipped in 19.89s**.
+
+- המשתמש בנה `RagQuestion` עם `Field`, תיקן שגיאות כתיב בתחביר Python
+  והגדיר `question` באורך 1–2000 ו־`limit` עם ברירת מחדל 3 ובטווח 1–10.
+  נוסף `POST /api/v1/ai/rag/answer` מאומת: tenant מגיע מה־JWT ולא מה־body,
+  וה־OpenAPI מציג `RagQuestion` ו־`RagAnswer`. בדיקות ממוקדות:
+  **16 passed in 5.39s**. בדיקת vertical slice אמיתית חיברה טקסט סינתטי,
+  chunking, שמירה אטומית, retrieval, מודל מדומה ותשובה עם sources:
+  **1 passed in 3.27s**. אימות מלא סופי:
+  **197 passed, 1 skipped in 13.74s**. משימת ה־RAG vertical slice סומנה
+  כהושלמה; אין עדיין PDF extraction, malware worker, embeddings או מודל חי.
+
+- המשתמש הסביר נכון שאין טעם לקרוא למודל כאשר retrieval לא מחזיר context,
+  משום שאין evidence והקריאה רק מוסיפה hallucination risk, עלות ו־latency.
+  המשתמש גם בחר נכון שהשרת יבנה `RagSource` מה־IDs שכבר נוצרו ב־DB ולא
+  יאפשר למודל להמציא metadata; לאחר תיקון הוא מיפה נכון
+  `chunk.chunk_id`, ‏`document_submission_id` ו־`position`. נוסף
+  `answer_question_with_rag()` עם short-circuit ללא context, הנחיה להתייחס
+  ל־document context כמידע לא־מהימן, structured model output ובניית sources
+  בצד השרת. כל בדיקות OpenAI משתמשות ב־mock ללא רשת או עלות. אימות ממוקד:
+  **17 passed in 3.25s**; אימות מלא:
+  **189 passed, 1 skipped in 13.78s**.
+
+- המשתמש הבחין בין class בשם `DocumentChunk` לבין instance בשם `chunk`,
+  וזיהה את ארבעת השדות הנדרשים ל־prompt source metadata. לאחר מכן שילב
+  `format_chunk_for_prompt(chunk)` בתוך לולאה על tuples מסוג
+  `(score, chunk)` וחיבר את התוצאות ל־context אחד. נוספו בדיקות ל־metadata,
+  הפרדה בין chunks ומצב ללא תוצאות. אימות ממוקד:
+  **8 passed in 1.54s**; אימות מלא:
+  **185 passed, 1 skipped in 16.97s**.
+
+- המשתמש הגדיר נכון `RagSource` עם מזהי chunk/submission ו־position,
+  ותיקן את `RagAnswer.sources` מ־`Literal` ומ־`list` לא ממוקד אל
+  `list[RagSource]`, כך ש־Pydantic מאמת כל source object בנפרד. נוספו
+  constraints חיוביים למזהים, position לא שלילי ותשובה לא ריקה. אימות
+  ממוקד: **5 passed in 0.11s**; אימות מלא:
+  **182 passed, 1 skipped in 4.88s**.
+
+- המשתמש נעזר בתרשים ER מלא כדי להבין את מסלול ה־FKs, ואז חיבר נכון
+  `DocumentChunkRow` ל־`DocumentSubmissionRow`, משם ל־
+  `DocumentRequirementRow` ול־`UploadRequestRow`. המשתמש זיהה נכון שסינון
+  tenant צריך להשתמש ב־`UploadRequestRow.tenant_id` ושב־SQLAlchemy
+  משתמשים בשם ה־ORM model ולא בשם הטבלה. נוסף `retrieve_tenant_chunks()`
+  שמבצע tenant filter ו־status filter בתוך SQL לפני lexical scoring
+  ב־Python. בדיקה עם שני משרדים הוכיחה שגם chunk ממשרד אחר עם ציון גבוה
+  יותר אינו נכנס לתוצאות. אימות ממוקד: **6 passed in 0.81s**; אימות מלא:
+  **177 passed, 1 skipped in 6.39s**.
+
+- המשתמש בחר נכון `ON DELETE CASCADE` עבור chunks שהם derived data של
+  submission, והבין ששם מפורש ל־unique constraint משמש את PostgreSQL,
+  migrations והלוגים ואינו עמודה. נוספו `DocumentChunkRow` ו־migration
+  `20261112_0004` עם `TEXT`, ‏position לא שלילי, תוכן לא ריק וייחודיות
+  `(document_submission_id, position)`. הטבלה נשארה מנורמלת; tenant scope
+  ייאכף דרך join ל־upload request לפני ranking. בדיקות model/migration:
+  **5 passed in 1.96s**; migration אמיתית ובדיקת PostgreSQL:
+  **1 passed in 0.72s**; אימות מלא: **172 passed, 1 skipped in 17.34s**.
+  המשתמש למד `enumerate()` ומיפה נכון כל `(position, content)` ל־
+  `DocumentChunkRow` עם `document_submission_id` משותף. המשתמש בחר נכון
+  בהחלפה אטומית של chunks עבור retry של אותו job. נוסף
+  `replace_document_chunks()` שנועל submission מאושר, מוחק ומכניס מחדש
+  באותה transaction ומבצע rollback בכשל. אימות ממוקד:
+  **4 passed in 1.11s**; אימות מלא: **176 passed, 1 skipped in 11.77s**.
+
+- המשתמש בנה נכון את אלגוריתם חלוקת הטקסט ל־chunks: ‏`split()`, חיתוך
+  `words[start:start + max_words]`, חיבור עם `" ".join(...)`, ‏`append`
+  בתוך הלולאה ו־`return` לאחריה. הובהר שהקובץ המקורי נשמר ב־S3, בעוד
+  chunks נגזרים נשמרים כ־rows ועמודות רגילות ב־PostgreSQL; ‏`pgvector`
+  מוסיף יכולת חיפוש סמנטי ואינו מחליף את PostgreSQL. נוספו שירות
+  `document_processing.py` ובדיקות ל־word order, whitespace, טקסט ריק
+  וגודל chunk לא חוקי. בדיקות processing ו־retrieval:
+  **10 passed in 0.13s**; אימות מלא: **168 passed, 1 skipped in 14.39s**.
+
+- התחיל vertical slice של RAG. המשתמש הגדיר נכון `DocumentChunk` כ־
+  `@dataclass(frozen=True)` עם `chunk_id`, ‏`tenant_id`,
+  `document_submission_id`, ‏`content` ו־`position`. הוחלט להתחיל ב־
+  retrieval דטרמיניסטי לפני הוספת embeddings/vector database, כדי לאמת
+  תחילה tenant isolation, מקורות וזרימת RAG מקצה לקצה. המשתמש הסביר נכון
+  שהסינון לפי tenant חייב לקרות לפני retrieval כדי שמסמכים ממשרד אחר לא
+  ייכנסו כלל ל־candidate set, ומימש סינון של `DocumentChunk` באמצעות
+  `item.tenant_id == tenant_id` בלי לשנות את הרשימה המקורית. לאחר תרגול
+  `any()` ו־generator expression, המשתמש מימש matcher שאוסף query words
+  עם `lower().split()` ובודק כל מילה מול תוכן chunk מנורמל. הובהר ההבדל
+  בין חיפוש מילים נפרדות, חיפוש phrase מלא ו־substring matching. המשתמש
+  החליף `any()` ב־`sum()` ומימש `calculate_chunk_score()` שמחזיר מספר
+  שלם לפי מספר מילות השאילתה שמופיעות בתוכן, כבסיס לדירוג תוצאות. לאחר
+  תיקון typo ותרגול `continue` ו־`list.append`, המשתמש שילב tenant filter
+  עם scoring ושמר כל תוצאה חיובית כ־tuple מסוג `(score, chunk)`. נוספה
+  תשתית retrieval דטרמיניסטית ב־`services/retrieval.py`, כולל דירוג יורד,
+  `limit` ובדיקות מפורשות שמונעות דליפה בין tenants. אימות ממוקד:
+  **5 passed in 0.03s**; אימות מלא: **163 passed, 1 skipped in 11.22s**.
+
+- תרגיל חיזוק Python מתוך מנגנון recovery: המשתמש כתב פונקציה שסורקת
+  submissions, מסננת `uploading` שנוצרו לפני `cutoff`, אוספת את המזהים
+  ומחזירה `list[int]`. לאחר review תוקנו גישה ל־dict, ‏`and`, שם השדה,
+  נקודתיים והחזרת הרשימה. הלוגיקה הסופית נכונה.
+
+- הופעל PostgreSQL 18.6 מקומי ב־Docker על `127.0.0.1:5433`, כדי לא
+  להתנגש ב־PostgreSQL אחר שכבר משתמש בפורט 5432. הרצת Alembic אמיתית
+  חשפה default לא נייד: SQLite קיבל `1` עבור Boolean, אך PostgreSQL דחה
+  אותו. ה־migration והמודל תוקנו להשתמש ב־SQL `true`. כל שלושת ה־
+  migrations עלו בהצלחה; בדיקת PostgreSQL המפורשת עברה:
+  **1 passed in 1.93s**. לאחר מכן הסוויטה המלאה עברה:
+  **158 passed, 1 skipped in 25.05s**; ה־skip הוא בדיקת PostgreSQL
+  המפורשת כאשר `TEST_POSTGRES_URL` אינו מוגדר.
+
+- הושלמה זרימת upload ציבורית בסיסית. היא מאמתת upload-session cookie,
+  בודקת מחדש request פעיל ולא פג, requirement מתאים ומגבלת קבצים, יוצרת
+  reservation אטומית בסטטוס `uploading`, שומרת ב־S3/local storage ואז
+  מעבירה ל־`pending_scan`. כשל אחסון נשמר כ־`upload_failed`; כשל finalization
+  משאיר state בר־שחזור. בדיקות אינטגרציה אימתו גם את שלושת תנאי link token:
+  hash, status ו־expiration. אימות ממוקד: **6 passed in 3.28s**; אימות
+  מלא מחוץ לבידוד: **158 passed in 12.82s**. scanner worker עדיין אינו
+  ממומש; קבצים ב־`pending_scan` אינם מיועדים להורדה.
+
+- המשתמש בחר להשאיר את link token תקף עד expiration והבין ש־session
+  cookie אינו יכול לחיות מעבר להרשאה שיצרה אותו. activation URL שונה
+  ל־fragment כדי למנוע שליחת raw token אוטומטית לשרת. נוסף exchange
+  endpoint שמקבל את ה־token ב־header ומחזיר cookie קצר־חיים עם
+  `HttpOnly`, ‏`Secure` ו־`SameSite=Strict`; access token רגיל אינו תקף
+  כ־upload session. אימות ממוקד: **26 passed in 6.71s**; אימות מלא מחוץ
+  לבידוד: **152 passed in 18.24s**.
+
+- המשתמש בחר מגבלת 15MB ושאל מדוע ליצור temporary file נוסף. בעקבות
+  ה־review הוסר הצורך בהעתקה נוספת: השירות קורא את `UploadFile` הקיים
+  ב־chunks, מחשב size ו־SHA-256, מבצע rewind ומעביר את אותו buffer
+  לאחסון. נוספו validation לקובץ ריק, חריגה מהמגבלה ושם metadata לא
+  חוקי. אימות ממוקד: **8 passed in 1.06s**; אימות מלא מחוץ לבידוד:
+  **142 passed in 17.78s**.
+
+- המשתמש בחר ש־`document_requirement_id` יגיע עם הקובץ, תוך אימות שהוא
+  שייך ל־upload request שמזוהה על ידי ה־token, ובחר לשמור submission
+  history מלא. נוספו טבלאות `document_requirements` ו־
+  `document_submissions` ב־migration חדשה, כולל metadata, storage key
+  ייחודי, SHA-256, גודל ו־status שמתחיל ב־`pending_scan`. ‏DB constraints
+  דוחים קובץ ריק וסטטוס לא חוקי. אימות ממוקד:
+  **4 passed in 2.30s**; אימות מלא מחוץ לבידוד:
+  **134 passed in 12.37s**.
+
+- המשתמש הבין שה־original filename נשמר ב־DB לצורך תצוגה וחיפוש אך אינו
+  שולט בנתיב האחסון, וביקש להוסיף S3. נוספו `FileStorage` abstraction,
+  אחסון מקומי אטומי לפיתוח ו־S3 adapter עם server-generated key,
+  tenant/request scope, private upload ו־SSE-S3. ‏Boto3 משתמש ב־credential
+  provider chain ואינו מקבל credentials מהקוד. כל בדיקות S3 משתמשות
+  ב־fake client ללא רשת. אימות ממוקד מחוץ לבידוד:
+  **7 passed in 1.20s**; `pip check` תקין; אימות מלא:
+  **131 passed in 17.51s**.
+
+- המשתמש בחר ליצור את ה־tenant וה־admin הראשון באמצעות פקודת bootstrap
+  מקומית ולא endpoint ציבורי, והסביר שכשל ביצירת admin חייב לבצע rollback
+  גם ל־tenant. נוספו service אטומי, CLI עם password prompt מוסתר ותיעוד
+  הפעלה ב־README. בדיקה אימתה rollback במקרה של email כפול. אימות ממוקד:
+  **2 passed in 3.65s**; אימות מלא מחוץ לבידוד:
+  **126 passed in 16.09s**.
+
+- המשתמש בחר נכון ש־authentication dependency תחזיר אובייקט פנימי עם
+  `user_id`, ‏`tenant_id` ו־`role`, ולא רק tenant ID. נוסף
+  `AuthenticatedUser` קפוא, Bearer extraction, אימות JWT, טעינת user
+  עדכני מה־DB ובדיקת `is_active`. ה־activation route מקבל tenant scope
+  מהמשתמש המאומת ולא מהלקוח. אימות ממוקד: **7 passed in 4.80s**;
+  אימות מלא מחוץ לבידוד: **124 passed in 11.42s**.
+
+- המשתמש בנה את מבנה `LoginRequest` לאחר תיקון constraints ל־`Field`
+  ואת `TokenResponse` לאחר תיקון שם השדה ותחביר `Literal`. נוסף
+  `POST /api/v1/auth/login` שמחזיר Bearer token, ממפה credentials שגויים
+  ל־401 אחיד ומבצע validation לקלט. אימות routes ו־OpenAPI:
+  **23 passed in 5.06s**; אימות מלא מחוץ לבידוד:
+  **121 passed in 10.82s**.
+
+- המשתמש הסביר נכון ש־email עובר `strip().lower()`, שהשאילתה מחפשת
+  משתמש לפי email בלבד, ושכל סיסמה נבדקת מול hash עם salt משלה. נוסף
+  שירות login שמבצע dummy Argon2 verification למשתמש שאינו קיים ומחזיר
+  אותה חריגה עבור email שגוי, password שגוי או משתמש לא פעיל, כדי לצמצם
+  user enumeration. אימות ממוקד: **8 passed in 3.33s**; אימות מלא מחוץ
+  לבידוד: **116 passed in 14.11s**.
+
+- המשתמש זיהה ש־JWT `sub` צריך להכיל `str(user_id)` ושחיבור דקות ל־
+  `datetime` מחייב `timedelta`. נוספו הגדרות server-only עבור secret,
+  issuer, audience ותוקף; יצירת JWT עם `sub/iss/aud/iat/exp`; ואימות
+  חתימה, audience, issuer, expiration ו־claims נדרשים. בדיקות דחו token
+  שפג תוקפו, secret שגוי ו־token ללא subject. אימות ממוקד:
+  **10 passed in 3.78s**; `pip check` תקין; אימות מלא מחוץ לבידוד:
+  **112 passed in 13.27s**.
+
+- המשתמש זיהה נכון שב־Argon2 בודקים סיסמה באמצעות `verify` ולא באמצעות
+  hash חדש והשוואת `==`, משום שכל hash משתמש ב־salt אקראי. נוספו
+  `pwdlib[argon2] 0.3.1`, ‏`PyJWT 2.15.1` ושירות hashing קטן. הבדיקות
+  מאמתות שה־plaintext אינו נשמר, סיסמה נכונה מתקבלת, שגויה נדחית ושני
+  hashes לאותה סיסמה שונים. אימות ממוקד: **4 passed in 0.79s**;
+  `pip check` תקין; אימות מלא: **108 passed in 9.06s**.
+
+- המשתמש בחר authentication לפי email ייחודי גלובלי והסיר `username`
+  שאינו מוסיף ערך ל־MVP. הוגדרו roles מינימליים `admin` ו־`staff`, עם
+  ברירת מחדל `staff`, ונוספה טבלת `users` ב־migration חדשה משום
+  שה־migration הראשונית כבר פורסמה. הסיסמה מיוצגת רק כ־`password_hash`.
+  בדיקות אימתו defaults, ייחודיות email גלובלית ו־DB constraint על role.
+  אימות ממוקד: **4 passed in 0.60s**; אימות מלא מחוץ לבידוד:
+  **104 passed in 2.90s**.
+
+- נוסף activation endpoint מלא עם tenant dependency, DB session לכל
+  request, ‏`PUBLIC_BASE_URL`, מיפוי 404/409 ותגובה שאינה חושפת token
+  בנפרד. ה־engine וה־pool נוצרים פעם אחת ב־FastAPI lifespan ונסגרים
+  בכיבוי; כל request מקבל `AsyncSession` נפרד. עד למימוש JWT אמיתי,
+  authentication נכשל בצורה בטוחה עם 401 והבדיקות משתמשות ב־dependency
+  override. תוקן גם סדר העדיפויות של Alembic כך ש־URL מפורש קודם למשתנה
+  סביבה. אימות ממוקד: **19 passed in 1.64s**; אימות מלא מחוץ לבידוד:
+  **101 passed in 2.73s**.
 
 - המשתמש הבחין בין `dict`, ‏`tuple`, ‏`dataclass` ו־Pydantic, ובנה
   `ActivatedUploadRequest` פנימי עם `frozen=True`. שירות ה־activation

@@ -3,8 +3,9 @@ from types import SimpleNamespace
 import pytest
 from agents.memory import SQLiteSession
 
-from backend.app.services import sdk_agent
+from backend.app.services import document_search, sdk_agent
 from backend.app.services.approval_store import approvals_store
+from backend.app.services.retrieval import DocumentChunk
 
 
 class FakeInterruption:
@@ -65,6 +66,137 @@ def test_sdk_tool_schema_is_generated_from_function_signature():
 
 def test_sdk_delete_tool_requires_approval():
     assert sdk_agent.sdk_delete_customer.needs_approval is True
+
+
+@pytest.mark.parametrize("role", ["admin", "staff"])
+def test_document_agent_role_policy_allows_read_only_search(role):
+    assert sdk_agent.document_agent_tools_for_role(role) == {
+        "sdk_search_documents"
+    }
+
+
+def test_document_agent_role_policy_denies_unknown_role():
+    assert sdk_agent.document_agent_tools_for_role("unknown") == set()
+
+
+def test_sdk_search_documents_exposes_only_model_controlled_arguments():
+    schema = sdk_agent.sdk_search_documents.params_json_schema
+
+    assert set(schema["properties"]) == {"query", "limit"}
+    assert schema["required"] == ["query", "limit"]
+    assert schema["properties"]["limit"]["default"] == 3
+    assert "tenant_id" not in schema["properties"]
+    assert "database_session" not in schema["properties"]
+
+
+@pytest.mark.anyio
+async def test_document_search_tool_uses_server_context(monkeypatch):
+    captured = {}
+
+    async def fake_retrieve(**kwargs):
+        captured.update(kwargs)
+        return [
+            (
+                2,
+                DocumentChunk(
+                    chunk_id=15,
+                    tenant_id=3,
+                    document_submission_id=7,
+                    content="Cancellation is permitted within 30 days.",
+                    position=2,
+                ),
+            )
+        ]
+
+    monkeypatch.setattr(
+        document_search,
+        "retrieve_tenant_chunks",
+        fake_retrieve,
+    )
+    session = object()
+    context = sdk_agent.DocumentAgentContext(
+        user_id=17,
+        tenant_id=3,
+        database_session=session,
+        allowed_tools={"sdk_search_documents"},
+    )
+
+    result = await sdk_agent.search_documents_for_agent(
+        context,
+        query="cancellation period",
+        limit=2,
+    )
+
+    assert captured == {
+        "session": session,
+        "tenant_id": 3,
+        "query": "cancellation period",
+        "limit": 2,
+    }
+    assert result["sources"] == [
+        {
+            "chunk_id": 15,
+            "document_submission_id": 7,
+            "position": 2,
+        }
+    ]
+    assert "chunk_id=15" in result["context"]
+
+
+@pytest.mark.anyio
+async def test_document_search_tool_enforces_allowlist(monkeypatch):
+    async def fail_if_called(**kwargs):
+        raise AssertionError("retrieval must not be called")
+
+    monkeypatch.setattr(
+        document_search,
+        "retrieve_tenant_chunks",
+        fail_if_called,
+    )
+    context = sdk_agent.DocumentAgentContext(
+        user_id=17,
+        tenant_id=3,
+        database_session=object(),
+        allowed_tools=set(),
+    )
+
+    with pytest.raises(PermissionError, match="not permitted"):
+        await sdk_agent.search_documents_for_agent(
+            context,
+            query="private document",
+        )
+
+
+@pytest.mark.anyio
+async def test_document_agent_receives_authenticated_context(monkeypatch):
+    calls = []
+
+    async def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return SimpleNamespace(final_output="The period is 30 days.")
+
+    monkeypatch.setattr(sdk_agent.Runner, "run", fake_run)
+    session = object()
+
+    result = await sdk_agent.answer_with_document_agent(
+        "What is the cancellation period?",
+        user_id=17,
+        tenant_id=3,
+        database_session=session,
+        allowed_tools={"sdk_search_documents"},
+    )
+
+    assert result == "The period is 30 days."
+    assert calls[0][0] == (
+        sdk_agent.document_agent,
+        "What is the cancellation period?",
+    )
+    context = calls[0][1]["context"]
+    assert context.user_id == 17
+    assert context.tenant_id == 3
+    assert context.database_session is session
+    assert context.allowed_tools == {"sdk_search_documents"}
+    assert calls[0][1]["max_turns"] == 5
 
 
 @pytest.mark.anyio

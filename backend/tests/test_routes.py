@@ -143,10 +143,26 @@ def test_openapi_preserves_routes_and_schema(client):
     assert set(document["paths"]) == {
         "/",
         "/api/v1/ai/classify",
+        "/api/v1/ai/agent/documents/answer",
+        "/api/v1/ai/rag/answer",
+        "/api/v1/auth/login",
         "/api/v1/requests/preview",
         "/api/v1/requests/test",
+        "/api/v1/public/uploads/session",
+        "/api/v1/public/uploads/requirements/{document_requirement_id}/submissions",
+        "/api/v1/upload-requests/{upload_request_id}/activate",
     }
     schema = document["components"]["schemas"]["APIRequest"]
     assert set(schema["required"]) == {"url", "method"}
     assert schema["properties"]["url"]["type"] == "string"
     assert schema["properties"]["method"]["type"] == "string"
+
+    rag_operation = document["paths"]["/api/v1/ai/rag/answer"]["post"]
+    request_schema = rag_operation["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
+    response_schema = rag_operation["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    assert request_schema["$ref"].endswith("/RagQuestion")
+    assert response_schema["$ref"].endswith("/RagAnswer")

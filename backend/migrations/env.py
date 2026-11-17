@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from backend.app.db.base import Base
 from backend.app.models import documents  # noqa: F401
+from backend.app.models import users  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,13 +26,14 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-database_url = os.getenv("DATABASE_URL")
+if not config.get_main_option("sqlalchemy.url"):
+    database_url = os.getenv("DATABASE_URL")
 
-if database_url:
-    config.set_main_option(
-        "sqlalchemy.url",
-        database_url.replace("%", "%%"),
-    )
+    if database_url:
+        config.set_main_option(
+            "sqlalchemy.url",
+            database_url.replace("%", "%%"),
+        )
 
 if not config.get_main_option("sqlalchemy.url"):
     raise RuntimeError("DATABASE_URL is required to run migrations")

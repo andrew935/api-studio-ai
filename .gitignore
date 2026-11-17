@@ -39,6 +39,7 @@ frontend/build/
 
 # Local tooling
 .serena/
+/storage/
 
 # OS and editors
 .DS_Store

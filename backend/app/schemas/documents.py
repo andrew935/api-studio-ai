@@ -26,3 +26,16 @@ class UploadRequestActivationResponse(BaseModel):
     status: Literal["active"] = "active"
     upload_url: HttpUrl
     expires_at: datetime
+
+
+class UploadSessionResponse(BaseModel):
+    status: Literal["ready"] = "ready"
+    expires_at: datetime
+
+
+class DocumentSubmissionResponse(BaseModel):
+    submission_id: int
+    status: Literal["pending_scan"] = "pending_scan"
+    original_filename: str
+    size_bytes: int
+    sha256: str
