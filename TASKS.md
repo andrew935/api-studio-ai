@@ -162,7 +162,7 @@ human-in-the-loop, persistence ודיבוג Agents.
 ### 19–21.11 — Production Engineering
 
 - [x] לארוז את האפליקציה ב־Docker עם configuration ו־secrets מאובטחים.
-- [ ] לבנות GitHub Actions עבור tests ו־build, ולהוסיף deployment אם
+- [x] לבנות GitHub Actions עבור tests ו־build, ולהוסיף deployment אם
   סביבת הענן מוכנה.
 - [ ] להוסיף structured logging, health checks ומדדי monitoring בסיסיים.
 - [ ] לבצע production hardening: הרשאות, rate limits, timeouts, טיפול

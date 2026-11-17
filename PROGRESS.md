@@ -28,9 +28,10 @@
   `requirements-dev.txt` ומריץ Pytest; job שני תלוי בהצלחתו ובונה את
   Docker image. נוספו הרשאות read-only, ביטול ריצות ישנות ו־timeouts.
   פקודת הבדיקות אומתה מקומית: **242 passed, 1 skipped in 20.28s**,
-  ו־`docker build --tag api-studio-ai:ci .` הסתיים בהצלחה. ה־workflow
-  טרם רץ על GitHub משום שהחיבור ל־`github.com:443` נכשל, ולכן משימת
-  GitHub Actions עדיין לא סומנה כהושלמה.
+  ו־`docker build --tag api-studio-ai:ci .` הסתיים בהצלחה. לאחר push
+  ל־`main`, ריצת GitHub Actions מספר `44066346095` הסתיימה בהצלחה:
+  גם `Python tests` וגם `Docker build` עברו. משימת GitHub Actions
+  סומנה כהושלמה; deployment נשאר מחוץ להיקף עד לבחירת סביבת ענן.
 - הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
   זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
   ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency
