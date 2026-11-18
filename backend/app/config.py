@@ -8,11 +8,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str
+    database_pool_timeout_seconds: float = Field(default=5, gt=0, le=30)
+    database_command_timeout_seconds: float = Field(default=5, gt=0, le=60)
     public_base_url: HttpUrl
     jwt_secret_key: SecretStr = Field(min_length=32)
     jwt_issuer: str = Field(min_length=1)
     jwt_audience: str = Field(min_length=1)
     access_token_expire_minutes: int = Field(ge=5, le=1440)
+    openai_attempt_timeout_seconds: float = Field(default=7, gt=0, le=60)
+    openai_max_retries: int = Field(default=1, ge=0, le=2)
+    openai_total_timeout_seconds: float = Field(default=15, gt=0, le=120)
     redis_url: str = "redis://localhost:6379/0"
     rate_limit_hmac_key: SecretStr = Field(min_length=32)
     login_ip_limit: int = Field(default=100, ge=1, le=10_000)
@@ -37,6 +42,9 @@ class Settings(BaseSettings):
     s3_endpoint_url: HttpUrl | None = None
     s3_circuit_failure_threshold: int = Field(default=3, ge=1, le=20)
     s3_circuit_recovery_seconds: int = Field(default=30, ge=1, le=3600)
+    s3_connect_timeout_seconds: float = Field(default=3, gt=0, le=30)
+    s3_read_timeout_seconds: float = Field(default=10, gt=0, le=120)
+    s3_total_max_attempts: int = Field(default=2, ge=1, le=5)
 
     model_config = SettingsConfigDict(
         env_file=".env",

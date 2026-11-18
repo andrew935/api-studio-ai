@@ -77,7 +77,11 @@ def create_document_mcp_server(settings: Settings) -> MCPServer:
     async def lifespan(
         _server: MCPServer,
     ) -> AsyncIterator[DocumentMcpResources]:
-        engine = create_database_engine(settings.database_url)
+        engine = create_database_engine(
+            settings.database_url,
+            pool_timeout_seconds=settings.database_pool_timeout_seconds,
+            command_timeout_seconds=settings.database_command_timeout_seconds,
+        )
         try:
             yield DocumentMcpResources(
                 session_factory=create_session_factory(engine)

@@ -160,6 +160,8 @@ def test_openapi_preserves_routes_and_schema(client):
     assert schema["properties"]["method"]["type"] == "string"
 
     rag_operation = document["paths"]["/api/v1/ai/rag/answer"]["post"]
+    classify_operation = document["paths"]["/api/v1/ai/classify"]["post"]
+    assert classify_operation.get("parameters", []) == []
     request_schema = rag_operation["requestBody"]["content"][
         "application/json"
     ]["schema"]

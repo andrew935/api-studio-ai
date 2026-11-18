@@ -3,6 +3,7 @@ from io import BytesIO
 import pytest
 from botocore.exceptions import ClientError, ReadTimeoutError
 
+from backend.app.config import Settings
 from backend.app.services.circuit_breaker import (
     CircuitBreaker,
     CircuitOpenError,
@@ -12,8 +13,41 @@ from backend.app.services.file_storage import (
     LocalFileStorage,
     S3FileStorage,
     classify_s3_failure,
+    create_file_storage,
     generate_storage_key,
 )
+
+
+def test_s3_client_uses_explicit_timeouts_and_attempt_budget(monkeypatch):
+    captured = {}
+
+    def fake_boto_client(service_name, **options):
+        captured["service_name"] = service_name
+        captured.update(options)
+        return object()
+
+    monkeypatch.setattr(
+        "backend.app.services.file_storage.boto3.client",
+        fake_boto_client,
+    )
+    settings = Settings(
+        storage_backend="s3",
+        s3_bucket="private-documents",
+        s3_connect_timeout_seconds=2,
+        s3_read_timeout_seconds=8,
+        s3_total_max_attempts=2,
+    )
+
+    create_file_storage(settings)
+
+    boto_config = captured["config"]
+    assert captured["service_name"] == "s3"
+    assert boto_config.connect_timeout == 2
+    assert boto_config.read_timeout == 8
+    assert boto_config.retries == {
+        "total_max_attempts": 2,
+        "mode": "standard",
+    }
 
 
 class FakeS3Client:

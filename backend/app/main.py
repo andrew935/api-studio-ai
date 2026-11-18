@@ -26,7 +26,11 @@ from backend.app.logging import configure_logging, log_http_request
 async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.log_level)
-    engine = create_database_engine(settings.database_url)
+    engine = create_database_engine(
+        settings.database_url,
+        pool_timeout_seconds=settings.database_pool_timeout_seconds,
+        command_timeout_seconds=settings.database_command_timeout_seconds,
+    )
     app.state.database_session_factory = create_session_factory(engine)
     app.state.file_storage = create_file_storage(settings)
     app.state.rate_limiter = create_rate_limiter(settings)

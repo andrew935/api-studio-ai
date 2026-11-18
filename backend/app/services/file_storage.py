@@ -6,6 +6,7 @@ from typing import BinaryIO, Protocol
 from uuid import uuid4
 
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import (
     ClientError,
     ConnectionClosedError,
@@ -176,6 +177,14 @@ def create_file_storage(settings: Settings) -> FileStorage:
         "s3",
         region_name=settings.s3_region,
         endpoint_url=endpoint_url,
+        config=BotoConfig(
+            connect_timeout=settings.s3_connect_timeout_seconds,
+            read_timeout=settings.s3_read_timeout_seconds,
+            retries={
+                "total_max_attempts": settings.s3_total_max_attempts,
+                "mode": "standard",
+            },
+        ),
     )
     circuit_breaker = CircuitBreaker(
         failure_threshold=settings.s3_circuit_failure_threshold,

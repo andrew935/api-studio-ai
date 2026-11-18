@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from openai import AsyncOpenAI
 
 from backend.app.config import Settings, get_settings
 from backend.app.models.users import UserRole
@@ -13,6 +14,7 @@ from backend.app.services.security import (
     decode_access_token,
 )
 from backend.app.services.file_storage import FileStorage
+from backend.app.services.llm_client import create_openai_client
 from backend.app.services.rate_limiter import RateLimiter
 
 
@@ -49,6 +51,15 @@ def get_file_storage(request: Request) -> FileStorage:
 
 def get_rate_limiter(request: Request) -> RateLimiter:
     return request.app.state.rate_limiter
+
+
+def get_openai_client(
+    settings: Settings = Depends(get_settings),
+) -> AsyncOpenAI:
+    return create_openai_client(
+        timeout=settings.openai_attempt_timeout_seconds,
+        max_retries=settings.openai_max_retries,
+    )
 
 
 async def get_current_user(

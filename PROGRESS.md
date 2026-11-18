@@ -1,6 +1,6 @@
 # התקדמות מאומתת — API Studio AI
 
-תאריך עדכון אחרון: 2026-11-17.
+תאריך עדכון אחרון: 2026-11-18.
 
 ## מצב הלמידה
 
@@ -75,6 +75,20 @@
   ללא persistence. אימות ממוקד לאחר הגנת ה־IP: **13 passed in 7.27s**;
   אימות מלא: **257 passed, 1 skipped in 17.18s**; Compose config עבר;
   smoke test אמיתי החזיר `PING=PONG` ו־Lua result של count `1` עם TTL `30`.
+- הוגדרה trusted-proxy policy עבור Uvicorn. המשתמש הסביר נכון שאין לקבל
+  `X-Forwarded-For` מחיבור שאינו מגיע מ־proxy מהימן, משום שניתן לשנות או
+  לזייף אותו וכך לעקוף rate limiting. נוספה `FORWARDED_ALLOW_IPS` עם ברירת
+  מחדל localhost בלבד, הופעל `--proxy-headers`, נאסר שימוש ב־`*` בתיעוד,
+  ו־Uvicorn `Server` header בוטל. Compose validation הוכיח שרשת proxy
+  מפורשת עוברת ל־container וששני flags קיימים בפקודת ההפעלה.
+- נוספו timeout budgets מפורשים. המשתמש זיהה נכון שפעולות בלתי תלויות יכולות
+  לרוץ במקביל, אך PostgreSQL retrieval חייב להקדים OpenAI כאשר הוא בונה את
+  ה־context. לאחר תיקון הובהר ש־`max_retries=2` הוא שלושה ניסיונות בסך הכול.
+  PostgreSQL מוגבל ל־5 שניות להמתנה ל־pool ולפקודה, S3 ל־3 שניות connect,
+  10 שניות read ושני ניסיונות כוללים, ו־OpenAI ל־7 שניות לניסיון, retry אחד
+  ו־outer deadline של 15 שניות. client אינו יכול לשנות budgets דרך query
+  parameters. אימות ממוקד: **26 passed in 9.98s**; אימות מלא:
+  **262 passed, 1 skipped in 12.49s**; Compose config עבר.
 - הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
   זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
   ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency

@@ -3,10 +3,10 @@ from fastapi.testclient import TestClient
 from backend.app.api.dependencies import (
     get_current_tenant_id,
     get_database_session,
+    get_openai_client,
 )
 from backend.app.main import app
 from backend.app.schemas.rag import RagAnswer, RagSource
-from backend.app.services.llm_client import create_openai_client
 
 
 class FakeOpenAIClient:
@@ -39,7 +39,7 @@ def test_rag_route_uses_authenticated_tenant_and_returns_sources(monkeypatch):
     )
     app.dependency_overrides[get_current_tenant_id] = lambda: 3
     app.dependency_overrides[get_database_session] = fake_session
-    app.dependency_overrides[create_openai_client] = FakeOpenAIClient
+    app.dependency_overrides[get_openai_client] = FakeOpenAIClient
 
     try:
         with TestClient(app) as client:
@@ -70,7 +70,7 @@ def test_rag_route_uses_authenticated_tenant_and_returns_sources(monkeypatch):
 
 
 def test_rag_route_requires_authentication():
-    app.dependency_overrides[create_openai_client] = FakeOpenAIClient
+    app.dependency_overrides[get_openai_client] = FakeOpenAIClient
 
     try:
         with TestClient(app) as client:
@@ -94,7 +94,7 @@ def test_rag_route_rejects_invalid_request_before_service(monkeypatch):
         fail_if_called,
     )
     app.dependency_overrides[get_current_tenant_id] = lambda: 3
-    app.dependency_overrides[create_openai_client] = FakeOpenAIClient
+    app.dependency_overrides[get_openai_client] = FakeOpenAIClient
 
     try:
         with TestClient(app) as client:

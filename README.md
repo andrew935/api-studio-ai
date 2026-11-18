@@ -76,8 +76,28 @@ generic `503` rather than bypassing authentication protection. Redis stores
 only temporary counters with TTLs, so persistence is intentionally disabled.
 
 The application reads the direct peer address. A production reverse proxy must
-be configured as a trusted proxy before forwarded client addresses are used;
-the API must never trust arbitrary `X-Forwarded-For` values from the internet.
+be configured through `FORWARDED_ALLOW_IPS` before forwarded client addresses
+are used. Set it to the exact proxy IPs or networks. Uvicorn then accepts
+`X-Forwarded-For` only when the direct connection comes from one of those
+trusted sources. Never set it to `*` in production, because that lets an
+internet client spoof the address used by rate limiting. The Uvicorn `Server`
+response header is also disabled.
+
+## Timeout budgets
+
+Production dependency calls use explicit budgets rather than library defaults:
+
+- PostgreSQL waits up to 5 seconds for a pooled connection and limits commands
+  to 5 seconds. `pool_pre_ping` avoids handing out stale PostgreSQL connections.
+- S3 uses a 3-second connect timeout, 10-second read timeout and two total
+  attempts, including the initial request.
+- Direct OpenAI calls use a 7-second per-attempt timeout, one retry and a
+  15-second outer operation deadline. The outer deadline includes retries and
+  backoff, and clients cannot override these values through query parameters.
+
+These values are configuration defaults, not universal constants. They should
+be tuned from production latency metrics while preserving an overall request
+budget.
 
 ## Bootstrap the first tenant administrator
 

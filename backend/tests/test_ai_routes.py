@@ -5,9 +5,9 @@ import openai
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.api.dependencies import get_openai_client
 from backend.app.main import app
 from backend.app.schemas.llm import SupportClassification
-from backend.app.services.llm_client import create_openai_client
 
 
 class FakeResponses:
@@ -38,7 +38,7 @@ def openai_client():
 
 @pytest.fixture
 def client(openai_client):
-    app.dependency_overrides[create_openai_client] = lambda: openai_client
+    app.dependency_overrides[get_openai_client] = lambda: openai_client
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -76,6 +76,11 @@ REQUEST = httpx2.Request("POST", "https://api.openai.com/v1/responses")
 @pytest.mark.parametrize(
     ("error", "expected_status", "expected_detail"),
     [
+        (
+            TimeoutError(),
+            504,
+            "OpenAI request timed out",
+        ),
         (
             openai.APITimeoutError(REQUEST),
             504,

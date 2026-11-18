@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from backend.app.api.dependencies import get_openai_client
 from backend.app.schemas.llm import SupportClassification
 from backend.app.services.llm_client import (
     INSTRUCTIONS,
@@ -46,6 +47,29 @@ def test_create_openai_client_passes_timeout_and_retries(monkeypatch):
         "timeout": 12.5,
         "max_retries": 4,
     }
+
+
+def test_openai_dependency_uses_configured_attempt_budget(monkeypatch):
+    captured = {}
+    expected_client = object()
+
+    def fake_create_openai_client(**options):
+        captured.update(options)
+        return expected_client
+
+    monkeypatch.setattr(
+        "backend.app.api.dependencies.create_openai_client",
+        fake_create_openai_client,
+    )
+    settings = SimpleNamespace(
+        openai_attempt_timeout_seconds=7,
+        openai_max_retries=1,
+    )
+
+    client = get_openai_client(settings)
+
+    assert client is expected_client
+    assert captured == {"timeout": 7, "max_retries": 1}
 
 
 @pytest.mark.anyio
