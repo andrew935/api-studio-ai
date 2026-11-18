@@ -89,6 +89,13 @@
   ו־outer deadline של 15 שניות. client אינו יכול לשנות budgets דרך query
   parameters. אימות ממוקד: **26 passed in 9.98s**; אימות מלא:
   **262 passed, 1 skipped in 12.49s**; Compose config עבר.
+- נוסף deployment/rollback runbook עם immutable image tags, preflight,
+  readiness gate, תיעוד migration compatibility ו־recovery escalation.
+  המשתמש זיהה נכון שגרסת application חדשה מול schema ישן עלולה להיכשל;
+  הובהר הכשל המשלים בזמן rollback: image ישן מול schema חדש שאינו backward
+  compatible. תועד expand-and-contract ונאסר `alembic downgrade` אוטומטי.
+  `APP_IMAGE` יחיד מניע API, MCP ו־migration, ו־Compose validation הוכיח
+  שאותו SHA tag עובר לשלושתם. משימת production hardening סומנה כהושלמה.
 - הותחל בלוק reliability של queue, workers ו־transactional outbox. המשתמש
   זיהה שבהפעלה חוזרת ה־worker עלול לעבד את אותו job פעם נוספת,
   ושעליו לזהות שהעיבוד כבר הושלם. הובהר שזהו עקרון idempotency

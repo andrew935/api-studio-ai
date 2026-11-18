@@ -32,7 +32,7 @@ x-app-service: &app-service
   build:
     context: .
     dockerfile: Dockerfile
-  image: api-studio-ai:local
+  image: ${APP_IMAGE:-api-studio-ai:local}
   environment: *app-environment
   init: true
   read_only: true

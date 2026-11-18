@@ -99,6 +99,9 @@ These values are configuration defaults, not universal constants. They should
 be tuned from production latency metrics while preserving an overall request
 budget.
 
+Deployment ordering, migration compatibility, readiness gates and rollback
+rules are documented in [the deployment runbook](docs/DEPLOYMENT_RUNBOOK.md).
+
 ## Bootstrap the first tenant administrator
 
 The bootstrap command creates the first tenant and its admin in one database

@@ -165,7 +165,7 @@ human-in-the-loop, persistence ודיבוג Agents.
 - [x] לבנות GitHub Actions עבור tests ו־build, ולהוסיף deployment אם
   סביבת הענן מוכנה.
 - [x] להוסיף structured logging, health checks ומדדי monitoring בסיסיים.
-- [ ] לבצע production hardening: הרשאות, rate limits, timeouts, טיפול
+- [x] לבצע production hardening: הרשאות, rate limits, timeouts, טיפול
   בכשלים ותיעוד rollback/recovery.
 
 ### 22–25.11 — סיום פרויקט והכנה לקריירה
